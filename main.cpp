@@ -22,7 +22,7 @@
 #include <stdlib.h>
 #include <locale.h> // for thousands separator
 
-#include "pimoco_tmc5160.h"
+#include "pimoco_stepper.h"
 
 void panicf(const char *fmt, ...) {
 	va_list argp;
@@ -31,13 +31,13 @@ void panicf(const char *fmt, ...) {
 	exit(-1);
 }
 
-void getAndPrintState(TMC5160SPI *stepper) {
+void getAndPrintState(Stepper *stepper) {
 	int32_t pos, speed;
 	if(!stepper->getPosition(&pos) || !stepper->getSpeed(&speed))
 		panicf("Error getting position and speed\n");
 
 	printf("Current position is %'+d; speed is %'+d and status is ", pos, speed);
-	TMC5160SPI::printStatus(stdout, stepper->getStatus());
+	TMC5160::printStatus(stdout, stepper->getStatus());
 	puts("");
 }
 
@@ -45,11 +45,11 @@ int main(int argc, char ** argv) {
 	puts("Starting up...");
 
 	setlocale(LC_ALL, ""); // for thousands separator
-	TMC5160SPI stepper;
-	stepper.setDebugLevel(TMC5160SPI::TMC_DEBUG_ACTIONS);
+	Stepper stepper;
+	stepper.setDebugLevel(Stepper::TMC_DEBUG_REGISTERS);
 
-	if(!stepper.open(TMC5160SPI::defaultDevice))
-		panicf("Error opening device %s\n", TMC5160SPI::defaultDevice);
+	if(!stepper.open(Stepper::defaultSPIDevice))
+		panicf("Error opening device %s\n", Stepper::defaultSPIDevice);
 
 	getAndPrintState(&stepper);
 
