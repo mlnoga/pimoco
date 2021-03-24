@@ -21,10 +21,10 @@
 #ifndef PIMOCO_TMC5160_H
 #define PIMOCO_TMC5160_H
 
-#include <stdint.h>
+#include "pimoco_spi.h"
 
 // A TMC5160 stepper connected via SPI
-class TMC5160SPI {
+class TMC5160 : public SPI {
 protected:
 	// Device register addresses
 	enum TMCRegisters : uint8_t {
@@ -139,90 +139,14 @@ protected:
 	};
 
 public:
-	// Driver debugging level
-	enum DriverDebugLevel : int {
-		TMC_DEBUG_ERRORS    = 0,
-		TMC_DEBUG_ACTIONS   = 1,
-		TMC_DEBUG_REGISTERS = 2,
-		TMC_DEBUG_PACKETS   = 3,
-	};
-
-
 	// Creates a TMC5160 stepper connected via SPI
-	TMC5160SPI();
+	TMC5160();
 
 	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
-	~TMC5160SPI();
-
-	// Opens and initializes a TMC5160 SPI device. Returns true on success, else false
-	bool open(const char *device);
-
-	// Returns true if the device is connected, else false
-	bool isConnected() { return fd>=0; }
-
-	// Returns the current speed in the variable pointed to by result. Returns true on success, else false	
-	bool getSpeed(int32_t *result) { return getRegister(TMCR_VACTUAL, (uint32_t*) result); }
-
-	// Sets the target speed to the given number of microsteps per second. Returns immediately. Returns true on success, else false
-	bool setTargetSpeed(int32_t value);
-
-	// Stops all current movement. Returns true on success, else false
-	bool stop() { return setTargetSpeed(0); }
-
-	// Returns the current position in the variable pointed to by result. Returns true on success, else false	
-	bool getPosition(int32_t *result) { return getRegister(TMCR_XACTUAL, (uint32_t*) result); }
-
-	// Syncs the current position on device to the given value. Temporarily enters holding mode to avoid moving the axis, 
-	// then restores previous ramping mode afterwards. Returns true on success, else false	
-	bool syncPosition(int32_t value);
-
-	// Sets the target position, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPosition(int32_t value);
-
-	// Sets the target position and performs a blocking go-to with optional timeout (0=no timeout). Returns when position reached, or timeout occurs. Returns true on success, else false
-	bool setTargetPositionBlocking(int32_t value, uint32_t timeoutMs=0);
-
-	// Gets maximal motor speed for gotos. In units of 2^24/f_clk. Returns true on success, else false
-	bool getMaxGoToSpeed(uint32_t *result) { *result=maxGoToSpeed;  return true; }
-
-	// Sets maximal motor speed. In units of 2^24/f_clk. Effective on next goto. Returns true on success, else false
-	bool getMaxGoToSpeed(uint32_t value) { maxGoToSpeed=value; return true; }
+	~TMC5160() { }
 
 	// Returns the device status flags from the latest command	
 	enum TMCStatusFlags getStatus() { return deviceStatus; }
-
-	// Sets driver debugging level
-	void setDebugLevel(enum DriverDebugLevel value) { debugLevel=value; }
-
-	// Gets driver debugging level	
-	enum DriverDebugLevel getDebugLevel() { return debugLevel; }
-
-	// Sets file for debug output
-	void setDebugFile(FILE *f) { debugFile=f; }
-
-	// Gets file for debug output	
-	FILE *getDebugFile() { return debugFile; }
-
-	// Get maximum current supported by the hardware based on the chosen sense resistor. See datasheet section 9, p.74. Returns true on success, else false
-	bool getHardwareMaxCurrent(uint32_t *result_mA) { *result_mA=hardwareMaxCurrent_mA; return true; }
-
-	// Set maximum current supported by the hardware based on the chosen sense resistor. See datasheet section 9, p.74. Returns true on success, else false
-	bool setHardwareMaxCurrent(uint32_t value_mA) { hardwareMaxCurrent_mA=value_mA; return true; }
-
-	// Get maximum current supported by the software based on hardware limits and chosen global current scaler. See datasheet section 9, p.74. Returns true on success, else false
-	bool getSoftwareMaxCurrent(uint32_t *result_mA);
-
-	// Gets motor run current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
-	bool getRunCurrent(uint32_t *result_mA);
-
-	// Sets motor run current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
-	bool setRunCurrent(uint32_t value_mA, bool bestPerformanceHint=true);
-
-	// Gets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
-	bool getHoldCurrent(uint32_t *result_mA);
-
-	// Sets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
-	bool setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput=false);
 
 
 	// General configuration settings
@@ -343,9 +267,6 @@ public:
 
 	// Sets chopper hysteresis end value on device. 24+32*TOFF clocks. Returns true on success, else false
 	bool setChopperHEnd(uint32_t value) { return setRegisterBits(TMCR_CHOPCONF, value, 7, 4); }
-
-	// Runs automatic chopper tuning procedure, as per TMC5160A datasheet section 7.1, p.57ff
-	bool chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutMs);
 
 
 	// Velocity dependent configuration settings
@@ -511,8 +432,7 @@ protected:
 	// Updates spiStatus if successful. Fails if the register is not writeable. Returns true on success, else false
 	bool setRegister(uint8_t address, uint32_t value);
 
-	// Sends the given number of raw bytes to the device, then retrieves the same number of bytes. Returns true on success, else false
-	bool sendReceiveRaw(const uint8_t *tx, uint8_t *rx, uint32_t numBytes);
+	virtual bool sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t numBytes);
 
 	// Prints a packet to stdout with given prefix and suffix (if non-NULL). Returns true on success, else false
 	static bool printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix);
@@ -526,48 +446,14 @@ public:
 
 
 protected:
-	// File descriptor for the SPI device
-	int fd;
-
 	// Device status returned by the last SPI datagram
 	TMCStatusFlags deviceStatus;
-
-	// Maximum speed for GoTos. Stored separately as setTargetSpeed() overwrites VMAX on the device
-	uint32_t maxGoToSpeed;
-
-	// Maximal current supported by hardware based on the chosen sense resistor. See datasheet section 9, p.74
-	uint32_t hardwareMaxCurrent_mA;
 
 	// Last value written to write-only register TMCR_IHOLD_IRUN
 	uint32_t cachedRegisterValues[TMCR_NUM_REGISTERS];
 
-	// Debug level
-	enum DriverDebugLevel debugLevel;
-
-	// File for debug output 
-	FILE *debugFile;
-
-
-public:
-	// Default SPI device
-	static const char *defaultDevice;
 
 protected:	
-	// Default SPI mode settings
-	static const uint8_t defaultSPIMode;
-
-	// Default SPI bit settings
-	static const uint8_t defaultSPIBits;
-
-	// Default SPI maximum speed in Hertz
-	static const uint32_t defaultSPIMaxSpeedHz;
-
-	// Default SPI delay in microseconds
-	static const uint32_t defaultSPIDelayUsec;
-
-	// Default maximal current supported by TMC5160-BOB. See datasheet section 9, p.74
-	static const uint32_t defaultHardwareMaxCurrent_mA;
-
 	// Table of register metadata (names etc.) 
 	static const TMCRegisterMetaData registerMetaData[];
 
