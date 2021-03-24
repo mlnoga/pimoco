@@ -328,7 +328,7 @@ protected:
 	bool sendReceiveRaw(const uint8_t *tx, uint8_t *rx, uint32_t numBytes);
 
 	// Pretty prints a packet to stdout with given prefix and suffix (if non-NULL). Returns true on success, else false
-	bool prettyPrint(const uint8_t *data, uint32_t numBytes, const char *prefix, const char *suffix);
+	bool prettyPrint(const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix);
 
 	// File descriptor for the SPI device
 	int fd;
@@ -338,6 +338,9 @@ protected:
 
 	// Maximum speed for GoTos. Stored separately as setSpeed() overwrites VMAX on the device
 	uint32_t maxGoToSpeed;
+
+	// Last value written to write-only register TMCR_IHOLD_IRUN
+	uint32_t lastIHoldIRun;
 
 	// Device register addresses
 	enum TMCRegisters : uint8_t {
@@ -442,6 +445,9 @@ protected:
 
 	// Table of register names 
 	static const char *registerNames[];
+
+	// Table of status flag names
+	static const char *statusFlagNames[];
 };
 
 #endif // PIMOCO_TMC5160_H

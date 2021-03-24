@@ -165,7 +165,18 @@ const char     *TMC5160SPI::registerNames[]={
 	"UNUSED", // 0x7f
 };
 
-TMC5160SPI::TMC5160SPI() : fd(-1), deviceStatus((enum TMCStatusFlags) 0), maxGoToSpeed(100000) {
+const char *TMC5160SPI::statusFlagNames[]={
+		"RESET",             // Bit 0
+		"DRIVER_ERROR",      // Bit 1
+		"STALL_GUARD",       // Bit 2
+		"STAND_STILL",       // Bit 3
+		"VELOCITY_REACHED",  // Bit 4
+		"POSITION_REACHED",  // Bit 5
+		"STOP_L",            // Bit 6
+		"STOP_R",            // Bit 7
+};
+
+TMC5160SPI::TMC5160SPI() : fd(-1), deviceStatus((enum TMCStatusFlags) 0), maxGoToSpeed(100000), lastIHoldIRun(0) {
 }
 
 
@@ -227,7 +238,7 @@ bool TMC5160SPI::open(const char *deviceName) {
 
 	// Set a default ramp (used in auto-tuning)
 	//
-	if(!setVStart(0))
+	if(!setVStart(10))
 		return false;
 	if(!setA1(1000))
 		return false;
@@ -272,7 +283,8 @@ bool TMC5160SPI::open(const char *deviceName) {
 	if(!setChopperHEnd(0))
 		return false;
 
-	chopperAutoTuneStealthChop(500, 1000);
+	if(!chopperAutoTuneStealthChop(500, 10000))
+		return false;
 
 	// now that configuration is complete, set hold current to proper target 
 	if(!setIHold(10)) // 33% hold current: 10=11/32 of global current
@@ -344,12 +356,14 @@ bool TMC5160SPI::setPositionBlocking(int32_t value, uint32_t timeoutMs) {
 	// wait until in position
 	for(uint32_t i=0; i<timeoutMs; i++) {
 		usleep(1000l);  // 1 ms
+		printf("%4u: ", i);
 		int32_t pos;
 		if(!getPosition(&pos))
 			return false;
 		if(pos==value)
 			return true;
 	}
+	printf("Error: timeout!!\n");
 	return false; // timeout
 }
 
@@ -369,12 +383,17 @@ bool TMC5160SPI::setRegisterBits(uint8_t address, uint32_t value, uint32_t first
 	if(!getRegister(address, &tmp))
 		return false;
 	uint32_t mask=(uint32_t) ( (((uint64_t)1)<<numBits)-1 );
-	tmp=(tmp & ~(mask<<firstBit)) | ((value&mask)<<firstBit);
-	return setRegister(address, tmp);
+	int tmp2=(tmp & ~(mask<<firstBit)) | ((value&mask)<<firstBit);
+        printf("old %04x value %04x firstBit %d numBits %d mask %04x new %04x\n", tmp, value, firstBit, numBits, mask, tmp2);
+	return setRegister(address, tmp2);
 }
 
 
 bool TMC5160SPI::getRegister(uint8_t address, uint32_t *result) {
+	if(address==TMCR_IHOLD_IRUN) {   // use driver cache for write-only register
+		*result=lastIHoldIRun;
+		return true;
+	}
 	uint8_t tx[5]={(uint8_t) (address & 0x007f),0,0,0,0};
 	uint8_t rx[5];
 
@@ -401,6 +420,8 @@ bool TMC5160SPI::setRegister(uint8_t address, uint32_t value) {
 
 	deviceStatus=(enum TMCStatusFlags) rx[0];
 	// result[1..4] contains the value from the previous send/receive command. Ignoring that.
+	if(address==TMCR_IHOLD_IRUN)
+		lastIHoldIRun=value;
 	return true;
 }
 
@@ -415,25 +436,33 @@ bool TMC5160SPI::sendReceiveRaw(const uint8_t *tx, uint8_t *rx, uint32_t len) {
 		.bits_per_word = defaultSPIBits,
 	};
 
-	prettyPrint(tx, len, "TX:", NULL);
+	prettyPrint(tx, len, true, "TX", NULL);
 
 	int res=ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
 
-	prettyPrint(rx, len, "RX:", NULL);
-	printf(" Return: %d\n", res);
+	prettyPrint(rx, len, false, "    RX", NULL);
+	printf("    Return %d\n", res);
 
 	return res>=0;
 }
 
-bool TMC5160SPI::prettyPrint(const uint8_t *data, uint32_t numBytes, const char *prefix, const char *suffix) {
+bool TMC5160SPI::prettyPrint(const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix) {
 	if(data==NULL || numBytes==0)
 		return false;
 	if(prefix!=NULL)
 		printf("%s", prefix);
 
-	const char *opName=data[0]<=0x0080 ? "get" : "set";
-	const char *regName=registerNames[data[0] & 0x007f];
-	printf(" (%s %s)", opName, regName);
+	if(isTX) {
+		const char *opName=data[0]<0x0080 ? "get" : "set";
+		const char *regName=registerNames[data[0] & 0x007f];
+		printf(" [%s %-14s]", opName, regName);
+	} else {
+		printf(" [");
+		for(uint32_t i=0; i<8; i++)
+			if(data[0] & (1u<<i))
+				printf(" %s", statusFlagNames[i]);
+		printf("]");
+	}
 
 	for(uint32_t i=0; i<numBytes; i++)
 		printf(" %02X",data[i]);

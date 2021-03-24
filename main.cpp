@@ -23,9 +23,10 @@
 
 #include "pimoco_tmc5160.h"
 
-void panicf(const char *format, ...) {
-	va_list vargs;
-	printf(format, vargs);
+void panicf(const char *fmt, ...) {
+	va_list argp;
+	va_start(argp, fmt);
+	vfprintf(stdout, fmt, argp);
 	exit(-1);
 }
 
