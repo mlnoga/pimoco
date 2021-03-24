@@ -25,42 +25,106 @@
 
 // A TMC5160 stepper connected via SPI
 class TMC5160SPI {
-public:
-	// Creates a TMC5160 stepper connected via SPI
-	TMC5160SPI();
+protected:
+	// Device register addresses
+	enum TMCRegisters : uint8_t {
+		// general configuration 
+		//
+		TMCR_GCONF = 0x00,
+		TMCR_GSTAT = 0x01,
+		TMCR_IFCNT = 0x02,
+		TMCR_SLAVECONF = 0x03,
+		TMCR_IOIN = 0x04,   // on read (shared register)
+		TMCR_OUTPUT = 0x04, // on write (shared register)
+		TMCR_X_COMPARE = 0x05,
+		TMCR_OPT_PROG = 0x06,
+		TMCR_OPT_READ = 0x07,
+		TMCR_FACTORY_CONF = 0x08,
+		TMCR_SHORT_CONF = 0x09,
+		TMCR_DRV_CONF = 0x0a,
+		TMCR_GLOBAL_SCALER = 0x0b,
+		TMCR_OFFSET_READ = 0x0c,
 
-	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
-	~TMC5160SPI();
+		// velocity-dependent driver feature control
+		//
+		TMCR_IHOLD_IRUN = 0x10,
+		TMCR_TPOWER_DOWN = 0x11,
+		TMCR_TSTEP = 0x12,
+		TMCR_TPWMTHRS = 0x13,
+		TMCR_TCOOLTHRS = 0x14,
+		TMCR_THIGH = 0x15,
 
-	// Opens and initializes a TMC5160 SPI device. Returns true on success, else false
-	bool open(const char *device);
+		// ramp generator 
+		//
+		TMCR_RAMPMODE = 0x20,
+		TMCR_XACTUAL = 0x21,
+		TMCR_VACTUAL = 0x22,
+		TMCR_VSTART = 0x23,
+		TMCR_A1 = 0x24,
+		TMCR_V1 = 0x25,
+		TMCR_AMAX = 0x26,
+		TMCR_VMAX = 0x27,
+		TMCR_DMAX = 0x28,
+		TMCR_D1   = 0x2a,
+		TMCR_VSTOP = 0x2b,
+		TMCR_TZEROWAIT = 0x2c,
+		TMCR_XTARGET = 0x2d,
 
-	// Returns true if the device is connected, else false
-	bool isConnected() { return fd>=0; }
+		// ramp generator feature control
+		//
+		TMCR_VDCMIN = 0x33,
+		TMCR_SW_MODE = 0x34,
+		TMCR_RAMP_STAT = 0x35,
+		TMCR_XLATCH = 0x36,
 
-	// Stops all current movement. Returns true on success, else false
-	bool stop() { return setSpeed(0); }
+		// encoder registers
+		//
+		TMCR_ENCMODE = 0x38,
+		TMCR_X_ENC = 0x39,
+		TMCR_ENC_CONST = 0x3a,
+		TMCR_ENC_STATUS = 0x3b,
+		TMCR_ENC_LATCH = 0x3c,
+		TMCR_ENC_DEVIATION = 0x3d,
 
-	// Returns the current speed in the variable pointed to by result. Returns true on success, else false	
-	bool getSpeed(int32_t *result) { return getRegister(TMCR_VACTUAL, (uint32_t*) result); }
+		// motor driver registers
+		//
+		TMCR_MSLUT0 = 0x60,
+		TMCR_MSLUT1 = 0x61,
+		TMCR_MSLUT2 = 0x62,
+		TMCR_MSLUT3 = 0x63,
+		TMCR_MSLUT4 = 0x64,
+		TMCR_MSLUT5 = 0x65,
+		TMCR_MSLUT6 = 0x66,
+		TMCR_MSLUT7 = 0x67,
+		TMCR_MSLUTSEL = 0x68,
+		TMCR_MSLUTSTART = 0x69,
+		TMCR_MSCNT = 0x6a,
+		TMCR_MSCURACT = 0x6b,
+		TMCR_CHOPCONF = 0x6c,
+		TMCR_COOLCONF = 0x6d,
+		TMCR_DCCTRL = 0x6e,
+		TMCR_DRV_STATUS = 0x6f,
+		TMCR_PWMCONF = 0x70,
+		TMCR_PWM_SCALE = 0x71,
+		TMCR_PWM_AUTO = 0x72,
+		TMCR_LOST_STEPS = 0x73,
 
-	// Sets the current speed to the given number of microsteps per second. Returns immediately. Returns true on success, else false
-	bool setSpeed(int32_t value);
+		TMCR_NUM_REGISTERS = 0x080,
+	};
 
-	// Returns the current position in the variable pointed to by result. Returns true on success, else false	
-	bool getPosition(int32_t *result) { return getRegister(TMCR_XACTUAL, (uint32_t*) result); }
+	// Supported modes on a device register (none, read, write, both)
+	enum TMCRegisterModes : int {
+		TMCRM_NONE = 0,
+		TMCRM_R    = 1,
+		TMCRM_W    = 2,
+		TMCRM_RW   = 3,
+	};
 
-	// Initiates a go-to towards the given position. Returns immediately. Returns true on success, else false
-	bool setPosition(int32_t value);
-
-	// Performs a go-to towards the given position. Returns when position reached, or timeout occurs. Returns true on success, else false
-	bool setPositionBlocking(int32_t value, uint32_t timeoutMs);
-
-	// Gets maximal motor speed for gotos. In units of 2^24/f_clk. Returns true on success, else false
-	bool getMaxGoToSpeed(uint32_t *result) { *result=maxGoToSpeed;  return true; }
-
-	// Sets maximal motor speed. In units of 2^24/f_clk. Effective on next goto. Returns true on success, else false
-	bool getMaxGoToSpeed(uint32_t value) { maxGoToSpeed=value; return true; }
+	// Metadata about TMC registers
+	struct TMCRegisterMetaData {
+		const char *name;
+		enum TMCRegisterModes mode;
+	};
 
 	// Device status bit flags
 	enum TMCStatusFlags : uint8_t {
@@ -74,8 +138,70 @@ public:
 		TMC_STOP_R           = ((uint8_t)1)<<7
 	};
 
+public:
+	// Driver debugging level
+	enum DriverDebugLevel : int {
+		TMC_DEBUG_ERRORS    = 0,
+		TMC_DEBUG_ACTIONS   = 1,
+		TMC_DEBUG_REGISTERS = 2,
+		TMC_DEBUG_PACKETS   = 3,
+	};
+
+
+	// Creates a TMC5160 stepper connected via SPI
+	TMC5160SPI();
+
+	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
+	~TMC5160SPI();
+
+	// Opens and initializes a TMC5160 SPI device. Returns true on success, else false
+	bool open(const char *device);
+
+	// Returns true if the device is connected, else false
+	bool isConnected() { return fd>=0; }
+
+	// Returns the current speed in the variable pointed to by result. Returns true on success, else false	
+	bool getSpeed(int32_t *result) { return getRegister(TMCR_VACTUAL, (uint32_t*) result); }
+
+	// Sets the target speed to the given number of microsteps per second. Returns immediately. Returns true on success, else false
+	bool setTargetSpeed(int32_t value);
+
+	// Stops all current movement. Returns true on success, else false
+	bool stop() { return setTargetSpeed(0); }
+
+	// Returns the current position in the variable pointed to by result. Returns true on success, else false	
+	bool getPosition(int32_t *result) { return getRegister(TMCR_XACTUAL, (uint32_t*) result); }
+
+	// Syncs the current position on device to the given value. Temporarily enters holding mode to avoid moving the axis, 
+	// then restores previous ramping mode afterwards. Returns true on success, else false	
+	bool syncPosition(int32_t value);
+
+	// Sets the target position, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
+	bool setTargetPosition(int32_t value);
+
+	// Sets the target position and performs a blocking go-to with optional timeout (0=no timeout). Returns when position reached, or timeout occurs. Returns true on success, else false
+	bool setTargetPositionBlocking(int32_t value, uint32_t timeoutMs=0);
+
+	// Gets maximal motor speed for gotos. In units of 2^24/f_clk. Returns true on success, else false
+	bool getMaxGoToSpeed(uint32_t *result) { *result=maxGoToSpeed;  return true; }
+
+	// Sets maximal motor speed. In units of 2^24/f_clk. Effective on next goto. Returns true on success, else false
+	bool getMaxGoToSpeed(uint32_t value) { maxGoToSpeed=value; return true; }
+
 	// Returns the device status flags from the latest command	
 	enum TMCStatusFlags getStatus() { return deviceStatus; }
+
+	// Sets driver debugging level
+	void setDebugLevel(enum DriverDebugLevel value) { debugLevel=value; }
+
+	// Gets driver debugging level	
+	enum DriverDebugLevel getDebugLevel() { return debugLevel; }
+
+	// Sets file for debug output
+	void setDebugFile(FILE *f) { debugFile=f; }
+
+	// Gets file for debug output	
+	FILE *getDebugFile() { return debugFile; }
 
 
 	// General configuration settings
@@ -110,6 +236,12 @@ public:
 
 	// Sets PWM enable flag 0/1 on device. Returns true on success, else false
 	bool setPWMEnableStealthChop(uint32_t value) { return setRegisterBits(TMCR_GCONF, value, 2, 1); }
+
+	// Gets global status flags from device. Returns true on success, else false
+	bool getGStat(uint32_t *result) { return getRegister(TMCR_GSTAT, result); }
+
+	// Sets global status flags on device, e.g. to clear device status flags. Returns true on success, else false
+	bool setGStat(uint32_t value) { return setRegister(TMCR_GSTAT, value); }
 
 
 	// PWM settings
@@ -310,121 +442,66 @@ public:
 	// Gets waiting time between movements in opposite directions. In units of 512*t_clk. Returns true on success, else false
 	bool setTZeroWait(uint32_t value) { return setRegister(TMCR_TZEROWAIT, value); }
 
+	// Get register name. Drops the 0x80 flag used for setting registers
+	static const char *getRegisterName(uint8_t address) { return registerMetaData[address & 0x007f].name; }
+
+	// Returns true if a register can be read from in hardware. Drops the 0x80 flag used for setting registers.
+	static bool canReadRegister(uint8_t address) { return registerMetaData[address & 0x007f].mode & TMCRM_R; }
+
+	// Returns true if a register can be written to in harwdare. Drops the 0x80 flag used for setting registers
+	static bool canWriteRegister(uint8_t address) { return registerMetaData[address & 0x007f].mode & TMCRM_W; }
+
 
 protected:
-	// Gets bits from a register value from the device. Updates spiStatus if successful. Returns true on success, else false
+	// Gets bits from a register value from the device. For convenience, uses a driver-side cache for write-only registers. 
+	// Updates spiStatus if successfully read from device. Fails if the register is undefined. Returns true on success, else false.
 	bool getRegisterBits(uint8_t address, uint32_t *result, uint32_t firstBit, uint32_t numBits);
 
-	// Sets bits in a register value on the device. Other bits left unchanged. Updates spiStatus if successful. Returns true on success, else false
+	// Sets bits in a register value on the device. For convenience, uses a driver-side cache for write-only registers. 
+	// Other bits left unchanged. Updates spiStatus if successful. Fails if the register is not writeable. Returns true on success, else false
 	bool setRegisterBits(uint8_t address, uint32_t value, uint32_t firstBit, uint32_t numBits);
 
-	// Gets a register value from the device. Updates spiStatus if successful. Returns true on success, else false
+	// Gets a register value from the device. For convenience, uses a driver-side cache for write-only registers.
+	// Updates spiStatus if successfully read from device. Fails if the register is undefined. Returns true on success, else false
 	bool getRegister(uint8_t address, uint32_t *result);
 
-	// Sets a register on device to the given value. Updates spiStatus if successful. Returns true on success, else false
+	// Sets a register on device to the given value. For convenience, uses a driver-side cache for write-only registers.
+	// Updates spiStatus if successful. Fails if the register is not writeable. Returns true on success, else false
 	bool setRegister(uint8_t address, uint32_t value);
 
 	// Sends the given number of raw bytes to the device, then retrieves the same number of bytes. Returns true on success, else false
 	bool sendReceiveRaw(const uint8_t *tx, uint8_t *rx, uint32_t numBytes);
 
-	// Pretty prints a packet to stdout with given prefix and suffix (if non-NULL). Returns true on success, else false
-	bool prettyPrint(const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix);
+	// Prints a packet to stdout with given prefix and suffix (if non-NULL). Returns true on success, else false
+	static bool printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix);
 
+	// Prints a register get/set command
+	static void printRegister(FILE *f, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix);
+
+public:
+	// Prints status flags
+	static void printStatus(FILE *f, uint8_t status);
+
+
+protected:
 	// File descriptor for the SPI device
 	int fd;
 
 	// Device status returned by the last SPI datagram
 	TMCStatusFlags deviceStatus;
 
-	// Maximum speed for GoTos. Stored separately as setSpeed() overwrites VMAX on the device
+	// Maximum speed for GoTos. Stored separately as setTargetSpeed() overwrites VMAX on the device
 	uint32_t maxGoToSpeed;
 
 	// Last value written to write-only register TMCR_IHOLD_IRUN
-	uint32_t lastIHoldIRun;
+	uint32_t cachedRegisterValues[TMCR_NUM_REGISTERS];
 
-	// Device register addresses
-	enum TMCRegisters : uint8_t {
-		// general configuration 
-		//
-		TMCR_GCONF = 0x00,
-		TMCR_GSTAT = 0x01,
-		TMCR_IFCNT = 0x02,
-		TMCR_SLAVECONF = 0x03,
-		TMCR_IOIN = 0x04,   // on read (shared register)
-		TMCR_OUTPUT = 0x04, // on write (shared register)
-		TMCR_X_COMPARE = 0x05,
-		TMCR_OPT_PROG = 0x06,
-		TMCR_OPT_READ = 0x07,
-		TMCR_FACTORY_CONF = 0x08,
-		TMCR_SHORT_CONF = 0x09,
-		TMCR_DRV_CONF = 0x0a,
-		TMCR_GLOBAL_SCALER = 0x0b,
-		TMCR_OFFSET_READ = 0x0c,
+	// Debug level
+	enum DriverDebugLevel debugLevel;
 
-		// velocity-dependent driver feature control
-		//
-		TMCR_IHOLD_IRUN = 0x10,
-		TMCR_TPOWER_DOWN = 0x11,
-		TMCR_TSTEP = 0x12,
-		TMCR_TPWMTHRS = 0x13,
-		TMCR_TCOOLTHRS = 0x14,
-		TMCR_THIGH = 0x15,
+	// File for debug output 
+	FILE *debugFile;
 
-		// ramp generator 
-		//
-		TMCR_RAMPMODE = 0x20,
-		TMCR_XACTUAL = 0x21,
-		TMCR_VACTUAL = 0x22,
-		TMCR_VSTART = 0x23,
-		TMCR_A1 = 0x24,
-		TMCR_V1 = 0x25,
-		TMCR_AMAX = 0x26,
-		TMCR_VMAX = 0x27,
-		TMCR_DMAX = 0x28,
-		TMCR_D1   = 0x2a,
-		TMCR_VSTOP = 0x2b,
-		TMCR_TZEROWAIT = 0x2c,
-		TMCR_XTARGET = 0x2d,
-
-		// ramp generator feature control
-		//
-		TMCR_VDCMIN = 0x33,
-		TMCR_SW_MODE = 0x34,
-		TMCR_RAMP_STAT = 0x35,
-		TMCR_XLATCH = 0x36,
-
-		// encoder registers
-		//
-		TMCR_ENCMODE = 0x38,
-		TMCR_X_ENC = 0x39,
-		TMCR_ENC_CONST = 0x3a,
-		TMCR_ENC_STATUS = 0x3b,
-		TMCR_ENC_LATCH = 0x3c,
-		TMCR_ENC_DEVIATION = 0x3d,
-
-		// motor driver registers
-		//
-		TMCR_MSLUT0 = 0x60,
-		TMCR_MSLUT1 = 0x61,
-		TMCR_MSLUT2 = 0x62,
-		TMCR_MSLUT3 = 0x63,
-		TMCR_MSLUT4 = 0x64,
-		TMCR_MSLUT5 = 0x65,
-		TMCR_MSLUT6 = 0x66,
-		TMCR_MSLUT7 = 0x67,
-		TMCR_MSLUTSEL = 0x68,
-		TMCR_MSLUTSTART = 0x69,
-		TMCR_MSCNT = 0x6a,
-		TMCR_MSCURACT = 0x6b,
-		TMCR_CHOPCONF = 0x6c,
-		TMCR_COOLCONF = 0x6d,
-		TMCR_DCCTRL = 0x6e,
-		TMCR_DRV_STATUS = 0x6f,
-		TMCR_PWMCONF = 0x70,
-		TMCR_PWM_SCALE = 0x71,
-		TMCR_PWM_AUTO = 0x72,
-		TMCR_LOST_STEPS = 0x73,
-	};
 
 public:
 	// Default SPI device
@@ -443,8 +520,8 @@ protected:
 	// Default SPI delay in microseconds
 	static const uint32_t defaultSPIDelayUsec;
 
-	// Table of register names 
-	static const char *registerNames[];
+	// Table of register metadata (names etc.) 
+	static const TMCRegisterMetaData registerMetaData[];
 
 	// Table of status flag names
 	static const char *statusFlagNames[];

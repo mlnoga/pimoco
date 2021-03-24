@@ -34,135 +34,135 @@ const uint8_t  TMC5160SPI::defaultSPIBits=8;
 const uint32_t TMC5160SPI::defaultSPIMaxSpeedHz=500000;
 const uint32_t TMC5160SPI::defaultSPIDelayUsec=0;
 
-const char     *TMC5160SPI::registerNames[]={
-	"GCONF", // 0x00
-	"GSTAT", // 0x01
-	"IFCNT", // 0x02
-	"SLAVECONF", // 0x03
-	"IOIN_or_OUTPUT", // 0x04
-	"X_COMPARE", // 0x05
-	"OPT_PROG", // 0x06
-	"OPT_READ", // 0x07
-	"FACTORY_CONF", // 0x08
-	"SHORT_CONF", // 0x09
-	"DRV_CONF", // 0x0a
-	"GLOBAL_SCALER", // 0x0b
-	"OFFSET_READ", // 0x0c
-	"UNUSED", // 0x0d
-	"UNUSED", // 0x0e
-	"UNUSED", // 0x0f
-	"IHOLD_IRUN", // 0x10
-	"TPOWER_DOWN", // 0x11
-	"TSTEP", // 0x12
-	"TPWMTHRS", // 0x13
-	"TCOOLTHRS", // 0x14
-	"THIGH", // 0x15
-	"UNUSED", // 0x16
-	"UNUSED", // 0x17
-	"UNUSED", // 0x18
-	"UNUSED", // 0x19
-	"UNUSED", // 0x1a
-	"UNUSED", // 0x1b
-	"UNUSED", // 0x1c
-	"UNUSED", // 0x1d
-	"UNUSED", // 0x1e
-	"UNUSED", // 0x1f
-	"RAMPMODE", // 0x20
-	"XACTUAL", // 0x21
-	"VACTUAL", // 0x22
-	"VSTART", // 0x23
-	"A1", // 0x24
-	"V1", // 0x25
-	"AMAX", // 0x26
-	"VMAX", // 0x27
-	"DMAX", // 0x28
-	"UNUSED", // 0x29
-	"D1", // = 0x2a
-	"VSTOP", // 0x2b
-	"TZEROWAIT", // 0x2c
-	"XTARGET", // 0x2d
-	"UNUSED", // 0x2e
-	"UNUSED", // 0x2f
-	"UNUSED", // 0x30
-	"UNUSED", // 0x31
-	"UNUSED", // 0x32
-	"VDCMIN", // 0x33
-	"SW_MODE", // 0x34
-	"RAMP_STAT", // 0x35
-	"XLATCH", // 0x36
-	"UNUSED", // 0x07
-	"ENCMODE", // 0x38
-	"X_ENC", // 0x39
-	"ENC_CONST", // 0x3a
-	"ENC_STATUS", // 0x3b
-	"ENC_LATCH", // 0x3c
-	"ENC_DEVIATION", // 0x3d
-	"UNUSED", // 0x3e
-	"UNUSED", // 0x3f
-	"UNUSED", // 0x40
-	"UNUSED", // 0x41
-	"UNUSED", // 0x42
-	"UNUSED", // 0x43
-	"UNUSED", // 0x44
-	"UNUSED", // 0x45
-	"UNUSED", // 0x46
-	"UNUSED", // 0x47
-	"UNUSED", // 0x48
-	"UNUSED", // 0x49
-	"UNUSED", // 0x4a
-	"UNUSED", // 0x4b
-	"UNUSED", // 0x4c
-	"UNUSED", // 0x4d
-	"UNUSED", // 0x4e
-	"UNUSED", // 0x4f
-	"UNUSED", // 0x50
-	"UNUSED", // 0x51
-	"UNUSED", // 0x52
-	"UNUSED", // 0x53
-	"UNUSED", // 0x54
-	"UNUSED", // 0x55
-	"UNUSED", // 0x56
-	"UNUSED", // 0x57
-	"UNUSED", // 0x58
-	"UNUSED", // 0x59
-	"UNUSED", // 0x5a
-	"UNUSED", // 0x5b
-	"UNUSED", // 0x5c
-	"UNUSED", // 0x5d
-	"UNUSED", // 0x5e
-	"UNUSED", // 0x5f
-	"MSLUT0", // 0x60
-	"MSLUT1", // 0x61
-	"MSLUT2", // 0x62
-	"MSLUT3", // 0x63
-	"MSLUT4", // 0x64
-	"MSLUT5", // 0x65
-	"MSLUT6", // 0x66
-	"MSLUT7", // 0x67
-	"MSLUTSEL", // 0x68
-	"MSLUTSTART", // 0x69
-	"MSCNT", // 0x6a
-	"MSCURACT", // 0x6b
-	"CHOPCONF", // 0x6c
-	"COOLCONF", // 0x6d
-	"DCCTRL", // 0x6e
-	"DRV_STATUS", // 0x6f
-	"PWMCONF", // 0x70
-	"PWM_SCALE", // 0x71
-	"PWM_AUTO", // 0x72
-	"LOST_STEPS", // 0x73
-	"UNUSED", // 0x74
-	"UNUSED", // 0x75
-	"UNUSED", // 0x76
-	"UNUSED", // 0x77
-	"UNUSED", // 0x78
-	"UNUSED", // 0x79
-	"UNUSED", // 0x7a
-	"UNUSED", // 0x7b
-	"UNUSED", // 0x7c
-	"UNUSED", // 0x7d
-	"UNUSED", // 0x7e
-	"UNUSED", // 0x7f
+const TMC5160SPI::TMCRegisterMetaData TMC5160SPI::registerMetaData[]={
+	{ "GCONF",          TMC5160SPI::TMCRM_RW   }, // 0x00
+	{ "GSTAT",          TMC5160SPI::TMCRM_RW   }, // 0x01
+	{ "IFCNT",          TMC5160SPI::TMCRM_R    }, // 0x02
+	{ "SLAVECONF",      TMC5160SPI::TMCRM_W    }, // 0x03
+	{ "IOIN_or_OUTPUT", TMC5160SPI::TMCRM_RW   }, // 0x04
+	{ "X_COMPARE",      TMC5160SPI::TMCRM_W    }, // 0x05
+	{ "OPT_PROG",       TMC5160SPI::TMCRM_W    }, // 0x06
+	{ "OPT_READ",       TMC5160SPI::TMCRM_R    }, // 0x07
+	{ "FACTORY_CONF",   TMC5160SPI::TMCRM_RW   }, // 0x08
+	{ "SHORT_CONF",     TMC5160SPI::TMCRM_W    }, // 0x09
+	{ "DRV_CONF",       TMC5160SPI::TMCRM_W    }, // 0x0a
+	{ "GLOBAL_SCALER",  TMC5160SPI::TMCRM_W    }, // 0x0b
+	{ "OFFSET_READ",    TMC5160SPI::TMCRM_R    }, // 0x0c
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x0d
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x0e
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x0f
+	{ "IHOLD_IRUN",     TMC5160SPI::TMCRM_W    }, // 0x10
+	{ "TPOWER_DOWN",    TMC5160SPI::TMCRM_W    }, // 0x11
+	{ "TSTEP",          TMC5160SPI::TMCRM_R    }, // 0x12
+	{ "TPWMTHRS",       TMC5160SPI::TMCRM_W    }, // 0x13
+	{ "TCOOLTHRS",      TMC5160SPI::TMCRM_W    }, // 0x14
+	{ "THIGH",          TMC5160SPI::TMCRM_W    }, // 0x15
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x16
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x17
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x18
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x19
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x1a
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x1b
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x1c
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x1d
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x1e
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x1f
+	{ "RAMPMODE",       TMC5160SPI::TMCRM_RW   }, // 0x20
+	{ "XACTUAL",        TMC5160SPI::TMCRM_RW   }, // 0x21
+	{ "VACTUAL",        TMC5160SPI::TMCRM_R    }, // 0x22
+	{ "VSTART",         TMC5160SPI::TMCRM_W    }, // 0x23
+	{ "A1",             TMC5160SPI::TMCRM_W    }, // 0x24
+	{ "V1",             TMC5160SPI::TMCRM_W    }, // 0x25
+	{ "AMAX",           TMC5160SPI::TMCRM_W    }, // 0x26
+	{ "VMAX",           TMC5160SPI::TMCRM_W    }, // 0x27
+	{ "DMAX",           TMC5160SPI::TMCRM_W    }, // 0x28
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x29
+	{ "D1",             TMC5160SPI::TMCRM_W    }, // = 0x2a
+	{ "VSTOP",          TMC5160SPI::TMCRM_W    }, // 0x2b
+	{ "TZEROWAIT",      TMC5160SPI::TMCRM_W    }, // 0x2c
+	{ "XTARGET",        TMC5160SPI::TMCRM_RW   }, // 0x2d
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x2e
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x2f
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x30
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x31
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x32
+	{ "VDCMIN",         TMC5160SPI::TMCRM_W    }, // 0x33
+	{ "SW_MODE",        TMC5160SPI::TMCRM_RW   }, // 0x34
+	{ "RAMP_STAT",      TMC5160SPI::TMCRM_RW   }, // 0x35
+	{ "XLATCH",         TMC5160SPI::TMCRM_R    }, // 0x36
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x07
+	{ "ENCMODE",        TMC5160SPI::TMCRM_RW   }, // 0x38
+	{ "X_ENC",          TMC5160SPI::TMCRM_RW   }, // 0x39
+	{ "ENC_CONST",      TMC5160SPI::TMCRM_W    }, // 0x3a
+	{ "ENC_STATUS",     TMC5160SPI::TMCRM_RW   }, // 0x3b
+	{ "ENC_LATCH",      TMC5160SPI::TMCRM_R    }, // 0x3c
+	{ "ENC_DEVIATION",  TMC5160SPI::TMCRM_W    }, // 0x3d
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x3e
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x3f
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x40
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x41
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x42
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x43
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x44
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x45
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x46
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x47
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x48
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x49
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x4a
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x4b
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x4c
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x4d
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x4e
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x4f
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x50
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x51
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x52
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x53
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x54
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x55
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x56
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x57
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x58
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x59
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x5a
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x5b
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x5c
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x5d
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x5e
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x5f
+	{ "MSLUT0",         TMC5160SPI::TMCRM_W    }, // 0x60
+	{ "MSLUT1",         TMC5160SPI::TMCRM_W    }, // 0x61
+	{ "MSLUT2",         TMC5160SPI::TMCRM_W    }, // 0x62
+	{ "MSLUT3",         TMC5160SPI::TMCRM_W    }, // 0x63
+	{ "MSLUT4",         TMC5160SPI::TMCRM_W    }, // 0x64
+	{ "MSLUT5",         TMC5160SPI::TMCRM_W    }, // 0x65
+	{ "MSLUT6",         TMC5160SPI::TMCRM_W    }, // 0x66
+	{ "MSLUT7",         TMC5160SPI::TMCRM_W    }, // 0x67
+	{ "MSLUTSEL",       TMC5160SPI::TMCRM_W    }, // 0x68
+	{ "MSLUTSTART",     TMC5160SPI::TMCRM_W    }, // 0x69
+	{ "MSCNT",          TMC5160SPI::TMCRM_R    }, // 0x6a
+	{ "MSCURACT",       TMC5160SPI::TMCRM_R    }, // 0x6b
+	{ "CHOPCONF",       TMC5160SPI::TMCRM_RW   }, // 0x6c
+	{ "COOLCONF",       TMC5160SPI::TMCRM_W    }, // 0x6d
+	{ "DCCTRL",         TMC5160SPI::TMCRM_W    }, // 0x6e
+	{ "DRV_STATUS",     TMC5160SPI::TMCRM_R    }, // 0x6f
+	{ "PWMCONF",        TMC5160SPI::TMCRM_W    }, // 0x70
+	{ "PWM_SCALE",      TMC5160SPI::TMCRM_R    }, // 0x71
+	{ "PWM_AUTO",       TMC5160SPI::TMCRM_R    }, // 0x72
+	{ "LOST_STEPS",     TMC5160SPI::TMCRM_R    }, // 0x73
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x74
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x75
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x76
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x77
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x78
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x79
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x7a
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x7b
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x7c
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x7d
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x7e
+	{ "UNDEFINED",      TMC5160SPI::TMCRM_NONE }, // 0x7f
 };
 
 const char *TMC5160SPI::statusFlagNames[]={
@@ -176,7 +176,10 @@ const char *TMC5160SPI::statusFlagNames[]={
 		"STOP_R",            // Bit 7
 };
 
-TMC5160SPI::TMC5160SPI() : fd(-1), deviceStatus((enum TMCStatusFlags) 0), maxGoToSpeed(100000), lastIHoldIRun(0) {
+TMC5160SPI::TMC5160SPI() : fd(-1), deviceStatus((enum TMCStatusFlags) 0), maxGoToSpeed(100000), 
+                           debugLevel(TMC5160SPI::TMC_DEBUG_ERRORS), debugFile(stdout) {
+    for(int i=0; i<(int) TMCR_NUM_REGISTERS; i++)
+    	cachedRegisterValues[i]=0;
 }
 
 
@@ -189,9 +192,14 @@ TMC5160SPI::~TMC5160SPI() {
 
 bool TMC5160SPI::open(const char *deviceName) {
 	if(fd>=0) {
+		if(debugLevel>=TMC_DEBUG_ACTIONS) 
+			fprintf(debugFile, "Shutting down existing device with file descriptor %d\n", fd);
 		stop();
 		close(fd);
 	}
+
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Opening device %s\n", deviceName!=NULL ? deviceName : "NULL");
 
 	fd=::open(deviceName, O_RDWR);
 	if(fd<0)
@@ -210,6 +218,10 @@ bool TMC5160SPI::open(const char *deviceName) {
 	if(!stop())
 		return false;
 	usleep(100*1000l);
+
+	// Clear reset, undervoltage and driver error flags if present
+	if(!setGStat(0x07))
+		return false;
 
 	// Setup Diagnosis 0 output to provide interrupts based on ramp function
 	//
@@ -283,7 +295,7 @@ bool TMC5160SPI::open(const char *deviceName) {
 	if(!setChopperHEnd(0))
 		return false;
 
-	if(!chopperAutoTuneStealthChop(500, 10000))
+	if(!chopperAutoTuneStealthChop(500, 3000))
 		return false;
 
 	// now that configuration is complete, set hold current to proper target 
@@ -303,6 +315,9 @@ bool TMC5160SPI::open(const char *deviceName) {
 	// configure coolstep load adaptive current control
 	// configure high velocity mode with switch to fullstep, and enable DCStep to avoid lost steps when too fast
 
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Successfully initialized device %s\n", deviceName!=NULL ? deviceName : "NULL");
+	
 	return true;
 }
 
@@ -312,6 +327,8 @@ bool TMC5160SPI::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeo
 	int32_t startPos;
 	if(!getPosition(&startPos))
 		return false;
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Current position is %'+d\n", startPos);
 
 	uint32_t microRes;
 	if(!getChopperMicroRes(&microRes))
@@ -320,7 +337,7 @@ bool TMC5160SPI::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeo
 
 	// move a single full step
 	int32_t targetPos=startPos+(int32_t)fullStep;
-	if(!setPositionBlocking(targetPos, timeoutMs))
+	if(!setTargetPositionBlocking(targetPos, timeoutMs))
 		return false;
 
 	// wait >=130 ms, then device automatically sets PWM_OFS_AUTO
@@ -328,42 +345,65 @@ bool TMC5160SPI::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeo
 
 	// move given amount of full steps (should be few 100s), while device automatically updates PWM_GRAD_AUTO
 	targetPos+=secondSteps*(int32_t)fullStep;
-	if(!setPositionBlocking(targetPos, timeoutMs))
+	if(!setTargetPositionBlocking(targetPos, timeoutMs))
 		return false;
 
 	// return to starting position
-	return setPositionBlocking(startPos, timeoutMs);
+	return setTargetPositionBlocking(startPos, timeoutMs);
 }
 
 
-bool TMC5160SPI::setSpeed(int32_t value) {
+bool TMC5160SPI::setTargetSpeed(int32_t value) {
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Setting target speed to %'+d\n", value);
+
 	return setRegister(TMCR_RAMPMODE, value>=0 ? 1 : 2) &&    // select velocity mode and sign
 	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
 }
 
 
-bool TMC5160SPI::setPosition(int32_t value) {
+bool TMC5160SPI::syncPosition(int32_t value) {
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Syncing current position to %'+d\n", value);
+
+	// Syncing in positioning mode moves the axis, so we temporarily enter holding mode
+	uint32_t rm;
+	if(!getRegister(TMCR_RAMPMODE, &rm))
+		return false;
+	if(!setRegister(TMCR_RAMPMODE, 3))
+		return false;
+	if(!setRegister(TMCR_XACTUAL, value))
+		return false;
+	return setRegister(TMCR_RAMPMODE, rm);
+}
+
+
+bool TMC5160SPI::setTargetPosition(int32_t value) {
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Setting target position to %'+d\n", value);
+
 	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
-		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setSpeed() overwrote it
+		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
 	       setRegister(TMCR_XTARGET, (uint32_t) value);      // set target position to initiate movement
 }
 
 
-bool TMC5160SPI::setPositionBlocking(int32_t value, uint32_t timeoutMs) {
-	if(!setPosition(value))
+bool TMC5160SPI::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
+	if(!setTargetPosition(value))
 		return false;
 
-	// wait until in position
-	for(uint32_t i=0; i<timeoutMs; i++) {
+	// wait until in position or timeout occurs
+	for(uint32_t i=0; timeoutMs==0 || i<timeoutMs; i++) {
 		usleep(1000l);  // 1 ms
-		printf("%4u: ", i);
 		int32_t pos;
 		if(!getPosition(&pos))
 			return false;
-		if(pos==value)
+		if(pos==value) {
+			if(debugLevel>=TMC_DEBUG_ACTIONS)
+				fprintf(debugFile, "Reached target position at %'+d\n", value);
 			return true;
+		}
 	}
-	printf("Error: timeout!!\n");
 	return false; // timeout
 }
 
@@ -382,46 +422,84 @@ bool TMC5160SPI::setRegisterBits(uint8_t address, uint32_t value, uint32_t first
 	uint32_t tmp;
 	if(!getRegister(address, &tmp))
 		return false;
-	uint32_t mask=(uint32_t) ( (((uint64_t)1)<<numBits)-1 );
-	int tmp2=(tmp & ~(mask<<firstBit)) | ((value&mask)<<firstBit);
-        printf("old %04x value %04x firstBit %d numBits %d mask %04x new %04x\n", tmp, value, firstBit, numBits, mask, tmp2);
+	uint32_t mask=(uint32_t) ( (((uint64_t)1)<<numBits)-1 ) << firstBit;
+	int tmp2=(tmp & ~mask) | ((value<<firstBit) & mask);
+	if(debugLevel>=TMC_DEBUG_REGISTERS)
+        printf("    old %08x value %08x firstBit %d numBits %d mask %08x new %08x\n", tmp, value, firstBit, numBits, mask, tmp2);
 	return setRegister(address, tmp2);
 }
 
 
 bool TMC5160SPI::getRegister(uint8_t address, uint32_t *result) {
-	if(address==TMCR_IHOLD_IRUN) {   // use driver cache for write-only register
-		*result=lastIHoldIRun;
+	// use driver-side cache for write-only registers, fail for undefined registers
+	if(!canReadRegister(address)) {
+		if(!canWriteRegister(address)) {
+			if(debugLevel>=TMC_DEBUG_ERRORS)
+				printRegister(debugFile, address, 0, deviceStatus, "get", "error register is undefined");
+			return false;
+		}   
+		*result=cachedRegisterValues[address & 0x00f7];
+		if(debugLevel>=TMC_DEBUG_REGISTERS)
+			printRegister(debugFile, address, *result, deviceStatus, "get", "cached");
 		return true;
 	}
+
 	uint8_t tx[5]={(uint8_t) (address & 0x007f),0,0,0,0};
 	uint8_t rx[5];
 
 	// Per the datasheet, raw send/receive returns the value requested with the PREVIOUS transfer.
 	// As SPI is not performance critical for our application, we simply send read requests twice. 
 	for(int i=0; i<2; i++)
-		if(!sendReceiveRaw(tx,rx,5))
+		if(!sendReceiveRaw(tx,rx,5)) {
+			if(debugLevel>=TMC_DEBUG_ERRORS)
+				printRegister(debugFile, address, *result, rx[0], "get", "error");
 			return false;
+		}
 
 	deviceStatus=(enum TMCStatusFlags) rx[0];
+	if(deviceStatus&TMC_DRIVER_ERROR) {
+		if(debugLevel>=TMC_DEBUG_ERRORS)
+			printRegister(debugFile, address, *result, rx[0], "get", "error");
+		return false;
+	}
+
 	*result=(((uint32_t) rx[1])<<24) | (((uint32_t) rx[2])<<16) | 
 	        (((uint32_t) rx[3])<<8)  |  ((uint32_t) rx[4]); 
+	if(debugLevel>=TMC_DEBUG_REGISTERS)
+		printRegister(debugFile, address, *result, rx[0], "get", NULL);
+
 	return true;
 }
 
 
 bool TMC5160SPI::setRegister(uint8_t address, uint32_t value) {
+	if(!canWriteRegister(address)) {
+		if(debugLevel>=TMC_DEBUG_ERRORS)
+			printRegister(debugFile, address, value, 0, "set", "error register not writeable");
+		return false;
+	}
+
 	uint8_t tx[5]={(uint8_t) (address | 0x0080), 
 		           (uint8_t) ((value>>24)&0x00ff), (uint8_t) ((value>>16)&0x00ff), 
 		           (uint8_t) ((value>>8)&0x00ff),  (uint8_t) ((value>>0)&0x00ff)   };
 	uint8_t rx[5];
-	if(!sendReceiveRaw(tx,rx,5))
+	if(!sendReceiveRaw(tx,rx,5)) {
+		if(debugLevel>=TMC_DEBUG_REGISTERS)
+			printRegister(debugFile, address, value, rx[0], "set", "error");
 		return false;
+	}
 
 	deviceStatus=(enum TMCStatusFlags) rx[0];
+	if(deviceStatus&TMC_DRIVER_ERROR) {
+		if(debugLevel>=TMC_DEBUG_ERRORS)
+			printRegister(debugFile, address, value, rx[0], "set", "error");
+		return false;
+	}
+	cachedRegisterValues[address & 0x007f]=value;
 	// result[1..4] contains the value from the previous send/receive command. Ignoring that.
-	if(address==TMCR_IHOLD_IRUN)
-		lastIHoldIRun=value;
+
+	if(debugLevel>=TMC_DEBUG_REGISTERS)
+		printRegister(debugFile, address, value, rx[0], "set", NULL);
 	return true;
 }
 
@@ -436,38 +514,64 @@ bool TMC5160SPI::sendReceiveRaw(const uint8_t *tx, uint8_t *rx, uint32_t len) {
 		.bits_per_word = defaultSPIBits,
 	};
 
-	prettyPrint(tx, len, true, "TX", NULL);
+	if(debugLevel>=TMC_DEBUG_PACKETS)
+		printPacket(debugFile, tx, len, true, "TX", NULL);
 
 	int res=ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
 
-	prettyPrint(rx, len, false, "    RX", NULL);
-	printf("    Return %d\n", res);
+	if(debugLevel>=TMC_DEBUG_PACKETS) {
+		printPacket(debugFile, rx, len, false, "RX", NULL);
+		fprintf(debugFile, "   Return %d", res);
+	}
 
 	return res>=0;
 }
 
-bool TMC5160SPI::prettyPrint(const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix) {
+
+void TMC5160SPI::printRegister(FILE *f, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix) {
+	const char *regName=getRegisterName(address);
+	if(prefix!=NULL)
+		fprintf(f, "%s ", prefix);
+	fprintf(f,"'%-14s'@0x%04x = %'+14d (0x%08x) ", regName, address, value, value);
+	printStatus(f, status);
+	if(suffix!=NULL)
+		fprintf(f, " %s", suffix);
+	fprintf(f,"\n");
+}
+
+
+bool TMC5160SPI::printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix) {
 	if(data==NULL || numBytes==0)
 		return false;
 	if(prefix!=NULL)
-		printf("%s", prefix);
+		fprintf(f, "%s ", prefix);
 
 	if(isTX) {
 		const char *opName=data[0]<0x0080 ? "get" : "set";
-		const char *regName=registerNames[data[0] & 0x007f];
-		printf(" [%s %-14s]", opName, regName);
+		const char *regName=getRegisterName(data[0]);
+		fprintf(f, "%s '%-14s'", opName, regName);
 	} else {
-		printf(" [");
-		for(uint32_t i=0; i<8; i++)
-			if(data[0] & (1u<<i))
-				printf(" %s", statusFlagNames[i]);
-		printf("]");
+		fprintf(f, " ");
+		printStatus(f, data[0]);
 	}
 
 	for(uint32_t i=0; i<numBytes; i++)
-		printf(" %02X",data[i]);
+		fprintf(f, " %02X",data[i]);
 
 	if(suffix!=NULL)
-		printf("%s", suffix);
+		fprintf(f, " %s", suffix);
+	fprintf(f,"\n");
 	return true;
+}
+
+
+void TMC5160SPI::printStatus(FILE *f, uint8_t status) {
+	const char *separator="";
+	fprintf(f, "[");
+	for(uint32_t i=0; i<8; i++)
+		if(status & (1u<<i)) {
+			fprintf(f, "%s%s", separator, statusFlagNames[i]);
+			separator=" ";
+		}
+	fprintf(f, "]");	
 }

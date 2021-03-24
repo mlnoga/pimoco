@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <locale.h> // for thousands separator
 
 #include "pimoco_tmc5160.h"
 
@@ -30,17 +31,42 @@ void panicf(const char *fmt, ...) {
 	exit(-1);
 }
 
+void getAndPrintState(TMC5160SPI *stepper) {
+	int32_t pos, speed;
+	if(!stepper->getPosition(&pos) || !stepper->getSpeed(&speed))
+		panicf("Error getting position and speed\n");
+
+	printf("Current position is %'+d; speed is %'+d and status is ", pos, speed);
+	TMC5160SPI::printStatus(stdout, stepper->getStatus());
+	puts("");
+}
+
 int main(int argc, char ** argv) {
 	puts("Starting up...");
 
+	setlocale(LC_ALL, ""); // for thousands separator
 	TMC5160SPI stepper;
-	if(!stepper.open(TMC5160SPI::defaultDevice))
-		panicf("error opening stepper device %s\n", TMC5160SPI::defaultDevice);
+	stepper.setDebugLevel(TMC5160SPI::TMC_DEBUG_ACTIONS);
 
-	int32_t pos, speed;
-	if(!stepper.getPosition(&pos) || !stepper.getSpeed(&speed))
-		panicf("error getting position and speed\n");
-	printf("position %'6d\tspeed %'6d\tstatus 0x%2x\n", pos, speed, stepper.getStatus());
+	if(!stepper.open(TMC5160SPI::defaultDevice))
+		panicf("Error opening device %s\n", TMC5160SPI::defaultDevice);
+
+	getAndPrintState(&stepper);
+
+	if(!stepper.syncPosition(0))
+		panicf("Error syncing position\n");
+
+	getAndPrintState(&stepper);
+
+	if(!stepper.setTargetPositionBlocking(10000))
+		panicf("Error on goto");
+
+	getAndPrintState(&stepper);
+
+	if(!stepper.setTargetPositionBlocking(0))
+		panicf("Error on goto");
+	
+	getAndPrintState(&stepper);
 
 	puts("Exiting...");
 	return 0;
