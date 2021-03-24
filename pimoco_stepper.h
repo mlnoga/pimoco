@@ -1,4 +1,3 @@
-
 /*
     PiMoCo: Raspberry Pi Telescope Mount and Focuser Control
     Copyright (C) 2021 Markus Noga
@@ -58,6 +57,18 @@ public:
 	// Sets the target position and performs a blocking go-to with optional timeout (0=no timeout). Returns when position reached, or timeout occurs. Returns true on success, else false
 	bool setTargetPositionBlocking(int32_t value, uint32_t timeoutMs=0);
 
+	// Get minimum position limit. Returns true on success, else false
+	bool getMinPosition(int32_t *result) { *result=minPosition; return true; }
+
+	// Set minimum position limit. Returns true on success, else false
+	bool setMinPosition(int32_t value);
+
+	// Get maximum position limit. Returns true on success, else false
+	bool getMaxPosition(int32_t *result) { *result=maxPosition; return true; }
+
+	// Set maximum position limit. Returns true on success, else false
+	bool setMaxPosition(int32_t value);
+
 	// Gets maximal motor speed for gotos. In units of 2^24/f_clk. Returns true on success, else false
 	bool getMaxGoToSpeed(uint32_t *result) { *result=maxGoToSpeed;  return true; }
 
@@ -90,6 +101,12 @@ protected:
 	// Runs automatic chopper tuning procedure, as per TMC5160A datasheet section 7.1, p.57ff
 	bool chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutMs);
 
+	// Minimum position, in microsteps
+	int32_t minPosition;
+
+	// Maximum position, in microsteps
+	int32_t maxPosition;
+
 	// Maximum speed for GoTos. Stored separately as setTargetSpeed() overwrites VMAX on the device
 	uint32_t maxGoToSpeed;
 
@@ -99,6 +116,15 @@ protected:
 protected:	
 	// Default maximal current supported by TMC5160-BOB. See datasheet section 9, p.74
 	static const uint32_t defaultHardwareMaxCurrent_mA;
+
+	// Default minimal position. Based on arbitrary scope with gear ratio 1:1000, 1000 steps/rev and 256 microsteps 
+	static const int32_t defaultMinPosition;
+
+	// Default maximal position. Based on arbitrary scope with gear ratio 1:1000, 1000 steps/rev and 256 microsteps 
+	static const int32_t defaultMaxPosition;
+
+	// Default maximal go-to speed 
+	static const int32_t defaultMaxGoToSpeed;
 };
 
 #endif // PIMOCO_STEPPER_H

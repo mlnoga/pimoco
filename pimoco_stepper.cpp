@@ -31,9 +31,13 @@
 
 
 const uint32_t Stepper::defaultHardwareMaxCurrent_mA=3100; // default for TMC5160-BOB
+const int32_t  Stepper::defaultMinPosition=-1000ul*1000ul*256ul;
+const int32_t  Stepper::defaultMaxPosition= 1000ul*1000ul*256ul;
+const int32_t  Stepper::defaultMaxGoToSpeed=100000;
 
 
-Stepper::Stepper() : TMC5160(), maxGoToSpeed(100000), hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA) {
+Stepper::Stepper() : TMC5160(), minPosition(defaultMinPosition), maxPosition(defaultMaxPosition),
+				     maxGoToSpeed(defaultMaxGoToSpeed), hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA) {
 }
 
 
@@ -163,6 +167,158 @@ bool Stepper::close() {
 }
 
 
+bool Stepper::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutMs) {
+	// keep track of starting position
+	int32_t startPos;
+	if(!getPosition(&startPos))
+		return false;
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Current position is %'+d\n", startPos);
+
+	uint32_t microRes;
+	if(!getChopperMicroRes(&microRes))
+		return false;
+	uint32_t fullStep=256>>microRes; 
+
+	// move a single full step
+	int32_t targetPos=startPos+(int32_t)fullStep;
+	if(!setTargetPositionBlocking(targetPos, timeoutMs))
+		return false;
+
+	// wait >=130 ms, then device automatically sets PWM_OFS_AUTO
+	usleep(140000l);
+
+	// move given amount of full steps (should be few 100s), while device automatically updates PWM_GRAD_AUTO
+	targetPos+=secondSteps*(int32_t)fullStep;
+	if(!setTargetPositionBlocking(targetPos, timeoutMs))
+		return false;
+
+	// return to starting position
+	return setTargetPositionBlocking(startPos, timeoutMs);
+}
+
+
+bool Stepper::setTargetSpeed(int32_t value) {
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Setting target speed to %'+d\n", value);
+
+	// FIXME: min/max position limits are not checked when setting a speed.
+	// Would need a background timer with e.g. speed-based 1s lookahead.
+
+	return setRegister(TMCR_RAMPMODE, value>=0 ? 1 : 2) &&    // select velocity mode and sign
+	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
+}
+
+
+bool Stepper::syncPosition(int32_t value) {
+	if(value<minPosition || value>maxPosition) {
+		if(debugLevel>=TMC_DEBUG_ERRORS) 
+			fprintf(debugFile, "Unable to sync to position %'+d outside defined limits [%'+d, %'+d]\n", 
+				    value, minPosition, maxPosition);
+		return false;
+	}
+
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Syncing current position to %'+d\n", value);
+
+	// Syncing in positioning mode moves the axis, so we temporarily enter holding mode
+	uint32_t rm;
+	if(!getRegister(TMCR_RAMPMODE, &rm))
+		return false;
+	if(!setRegister(TMCR_RAMPMODE, 3))
+		return false;
+	if(!setRegister(TMCR_XACTUAL, value))
+		return false;
+	return setRegister(TMCR_RAMPMODE, rm);
+}
+
+
+bool Stepper::setTargetPosition(int32_t value) {
+	if(value<minPosition || value>maxPosition) {
+		if(debugLevel>=TMC_DEBUG_ERRORS) 
+			fprintf(debugFile, "Unable to set target position %'+d outside defined limits [%'+d, %'+d]\n", 
+				    value, minPosition, maxPosition);
+		return false;
+	}
+
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Setting target position to %'+d\n", value);
+
+	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
+		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
+	       setRegister(TMCR_XTARGET, (uint32_t) value);      // set target position to initiate movement
+}
+
+
+bool Stepper::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
+	Timestamp start;
+
+	if(!setTargetPosition(value))
+		return false;
+
+	// wait until position reached or timeout occurs
+	for(int i=0; ; i++) {
+		usleep(1000l);  // 1 ms
+		int32_t pos;
+		if(!getPosition(&pos))
+			return false;
+
+		if(pos==value) {
+			if(debugLevel>=TMC_DEBUG_ACTIONS) {
+				Timestamp now;
+				uint64_t elapsedMs=now.msSince(start);
+				fprintf(debugFile, "Reached target position at %'+d after %d polls in %llus %llums\n", 
+					    value, i, elapsedMs/1000, elapsedMs%1000);
+			}
+			if(!setTargetPositionReachedEvent(1)) // clear event flag
+				return false;			
+			return true;  // position reached
+		}
+
+		Timestamp now;
+		uint64_t elapsedMs=now.msSince(start);
+		if(timeoutMs>0 && elapsedMs>(uint64_t) timeoutMs)
+			return false; // timeout
+	}
+}
+
+
+bool Stepper::setMinPosition(int32_t value) {
+	int32_t currentPos;
+	if(!getPosition(&currentPos))
+		return false;
+	if(currentPos<value) {
+		if(debugLevel>=TMC_DEBUG_ERRORS) 
+			fprintf(debugFile, "Unable to set minimum position limit %'+d above current position %'+d\n", 
+				    value, currentPos);
+		return false;
+	}
+
+	if(debugLevel>=TMC_DEBUG_ACTIONS)
+		fprintf(debugFile, "Setting minimum position limit to %'+d\n", value);
+	minPosition=value; 
+	return true; 
+}
+
+
+bool Stepper::setMaxPosition(int32_t value) { 
+	int32_t currentPos;
+	if(!getPosition(&currentPos))
+		return false;
+	if(currentPos>value) {
+		if(debugLevel>=TMC_DEBUG_ERRORS) 
+			fprintf(debugFile, "Unable to set maximum position limit %'+d below current position %'+d\n", 
+				    value, currentPos);
+		return false;
+	}
+
+	if(debugLevel>=TMC_DEBUG_ACTIONS)
+		fprintf(debugFile, "Setting maximum position limit to %'+d\n", value);
+	maxPosition=value; 
+	return true; 
+}
+
+
 bool Stepper::getSoftwareMaxCurrent(uint32_t *result_mA) {
 	uint32_t gcs;
 	if(!getGlobalCurrentScaler(&gcs))
@@ -274,101 +430,3 @@ bool Stepper::setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput) {
 	return true;
 }
 
-
-bool Stepper::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutMs) {
-	// keep track of starting position
-	int32_t startPos;
-	if(!getPosition(&startPos))
-		return false;
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Current position is %'+d\n", startPos);
-
-	uint32_t microRes;
-	if(!getChopperMicroRes(&microRes))
-		return false;
-	uint32_t fullStep=256>>microRes; 
-
-	// move a single full step
-	int32_t targetPos=startPos+(int32_t)fullStep;
-	if(!setTargetPositionBlocking(targetPos, timeoutMs))
-		return false;
-
-	// wait >=130 ms, then device automatically sets PWM_OFS_AUTO
-	usleep(140000l);
-
-	// move given amount of full steps (should be few 100s), while device automatically updates PWM_GRAD_AUTO
-	targetPos+=secondSteps*(int32_t)fullStep;
-	if(!setTargetPositionBlocking(targetPos, timeoutMs))
-		return false;
-
-	// return to starting position
-	return setTargetPositionBlocking(startPos, timeoutMs);
-}
-
-
-bool Stepper::setTargetSpeed(int32_t value) {
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Setting target speed to %'+d\n", value);
-
-	return setRegister(TMCR_RAMPMODE, value>=0 ? 1 : 2) &&    // select velocity mode and sign
-	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
-}
-
-
-bool Stepper::syncPosition(int32_t value) {
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Syncing current position to %'+d\n", value);
-
-	// Syncing in positioning mode moves the axis, so we temporarily enter holding mode
-	uint32_t rm;
-	if(!getRegister(TMCR_RAMPMODE, &rm))
-		return false;
-	if(!setRegister(TMCR_RAMPMODE, 3))
-		return false;
-	if(!setRegister(TMCR_XACTUAL, value))
-		return false;
-	return setRegister(TMCR_RAMPMODE, rm);
-}
-
-
-bool Stepper::setTargetPosition(int32_t value) {
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Setting target position to %'+d\n", value);
-
-	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
-		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
-	       setRegister(TMCR_XTARGET, (uint32_t) value);      // set target position to initiate movement
-}
-
-
-bool Stepper::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
-	Timestamp start;
-
-	if(!setTargetPosition(value))
-		return false;
-
-	// wait until position reached or timeout occurs
-	for(int i=0; ; i++) {
-		usleep(1000l);  // 1 ms
-		int32_t pos;
-		if(!getPosition(&pos))
-			return false;
-
-		if(pos==value) {
-			if(debugLevel>=TMC_DEBUG_ACTIONS) {
-				Timestamp now;
-				uint64_t elapsedMs=now.msSince(start);
-				fprintf(debugFile, "Reached target position at %'+d after %d polls in %llus %llums\n", 
-					    value, i, elapsedMs/1000, elapsedMs%1000);
-			}
-			if(!setTargetPositionReachedEvent(1)) // clear event flag
-				return false;			
-			return true;  // position reached
-		}
-
-		Timestamp now;
-		uint64_t elapsedMs=now.msSince(start);
-		if(timeoutMs>0 && elapsedMs>(uint64_t) timeoutMs)
-			return false; // timeout
-	}
-}
