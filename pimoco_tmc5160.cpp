@@ -266,6 +266,8 @@ bool TMC5160SPI::open(const char *deviceName) {
 		return false;
 	if(!setVStop(10))
 		return false;
+	if(!setTZeroWait(100))
+		return false;
 
 	// Set PWM parameters for stealth chop
 	//
