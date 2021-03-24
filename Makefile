@@ -19,6 +19,9 @@ clean:
 realclean: clean
 	rm -f $(OBJS) $(DEPS)
 
+count:
+	wc -l *.cpp *.h
+
 $(TARGET): $(OBJS)
 	$(GPP) -o $@ $(LFLAGS) $(OBJS)
 
