@@ -293,7 +293,7 @@ void TMC5160::printRegister(FILE *f, uint8_t address, uint32_t value, uint8_t st
 	if(prefix!=NULL)
 		fprintf(f, "%s ", prefix);
 	fprintf(f,"'%-14s'@0x%04x = %'+14d (0x%08x) ", regName, address, value, value);
-	printStatus(f, status);
+	printStatus(f, (enum TMCStatusFlags) status);
 	if(suffix!=NULL)
 		fprintf(f, " %s", suffix);
 	fprintf(f,"\n");
@@ -312,7 +312,7 @@ bool TMC5160::printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool 
 		fprintf(f, "%s '%-14s'", opName, regName);
 	} else {
 		fprintf(f, " ");
-		printStatus(f, data[0]);
+		printStatus(f, (enum TMCStatusFlags) data[0]);
 	}
 
 	for(uint32_t i=0; i<numBytes; i++)
@@ -325,11 +325,11 @@ bool TMC5160::printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool 
 }
 
 
-void TMC5160::printStatus(FILE *f, uint8_t status) {
+void TMC5160::printStatus(FILE *f, enum TMCStatusFlags status) {
 	const char *separator="";
 	fprintf(f, "[");
 	for(uint32_t i=0; i<8; i++)
-		if(status & (1u<<i)) {
+		if( ((uint8_t)status) & (1u<<i) ) {
 			fprintf(f, "%s%s", separator, statusFlagNames[i]);
 			separator=" ";
 		}

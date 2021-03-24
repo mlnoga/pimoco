@@ -126,6 +126,7 @@ protected:
 		enum TMCRegisterModes mode;
 	};
 
+public:
 	// Device status bit flags
 	enum TMCStatusFlags : uint8_t {
 		TMC_RESET            = ((uint8_t)1)<<0,
@@ -138,7 +139,6 @@ protected:
 		TMC_STOP_R           = ((uint8_t)1)<<7
 	};
 
-public:
 	// Creates a TMC5160 stepper connected via SPI
 	TMC5160();
 
@@ -148,7 +148,11 @@ public:
 	// Returns the device status flags from the latest command	
 	enum TMCStatusFlags getStatus() { return deviceStatus; }
 
+	// Prints status flags
+	static void printStatus(FILE *f, enum TMCStatusFlags status);
 
+
+protected:
 	// General configuration settings
 	//
 
@@ -414,8 +418,6 @@ public:
 	// Returns true if a register can be written to in harwdare. Drops the 0x80 flag used for setting registers
 	static bool canWriteRegister(uint8_t address) { return registerMetaData[address & (TMCR_NUM_REGISTERS-1)].mode & TMCRM_W; }
 
-
-protected:
 	// Gets bits from a register value from the device. For convenience, uses a driver-side cache for write-only registers. 
 	// Updates spiStatus if successfully read from device. Fails if the register is undefined. Returns true on success, else false.
 	bool getRegisterBits(uint8_t address, uint32_t *result, uint32_t firstBit, uint32_t numBits);
@@ -440,12 +442,7 @@ protected:
 	// Prints a register get/set command
 	static void printRegister(FILE *f, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix);
 
-public:
-	// Prints status flags
-	static void printStatus(FILE *f, uint8_t status);
 
-
-protected:
 	// Device status returned by the last SPI datagram
 	TMCStatusFlags deviceStatus;
 
@@ -453,7 +450,6 @@ protected:
 	uint32_t cachedRegisterValues[TMCR_NUM_REGISTERS];
 
 
-protected:	
 	// Table of register metadata (names etc.) 
 	static const TMCRegisterMetaData registerMetaData[];
 

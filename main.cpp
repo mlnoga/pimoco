@@ -46,7 +46,7 @@ int main(int argc, char ** argv) {
 
 	setlocale(LC_ALL, ""); // for thousands separator
 	Stepper stepper;
-	stepper.setDebugLevel(Stepper::TMC_DEBUG_REGISTERS);
+	stepper.setDebugLevel(Stepper::TMC_DEBUG_ACTIONS);
 
 	if(!stepper.open(Stepper::defaultSPIDevice))
 		panicf("Error opening device %s\n", Stepper::defaultSPIDevice);
