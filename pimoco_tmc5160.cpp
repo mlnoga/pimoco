@@ -24,8 +24,10 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <cstdio>
+#include <sys/time.h>  // for gettimeofday() etc.
 
 #include "pimoco_tmc5160.h"
+#include "pimoco_time.h"
 
 
 const char    *TMC5160SPI::defaultDevice="/dev/spidev1.0";
@@ -33,6 +35,7 @@ const uint8_t  TMC5160SPI::defaultSPIMode=SPI_MODE_0;
 const uint8_t  TMC5160SPI::defaultSPIBits=8;
 const uint32_t TMC5160SPI::defaultSPIMaxSpeedHz=500000;
 const uint32_t TMC5160SPI::defaultSPIDelayUsec=0;
+const uint32_t TMC5160SPI::defaultHardwareMaxCurrent_mA=3100; // based on 0.075 Ohms resistor on TMC5160-BOB
 
 const TMC5160SPI::TMCRegisterMetaData TMC5160SPI::registerMetaData[]={
 	{ "GCONF",          TMC5160SPI::TMCRM_RW   }, // 0x00
@@ -177,6 +180,7 @@ const char *TMC5160SPI::statusFlagNames[]={
 };
 
 TMC5160SPI::TMC5160SPI() : fd(-1), deviceStatus((enum TMCStatusFlags) 0), maxGoToSpeed(100000), 
+						   hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA),
                            debugLevel(TMC5160SPI::TMC_DEBUG_ERRORS), debugFile(stdout) {
     for(int i=0; i<(int) TMCR_NUM_REGISTERS; i++)
     	cachedRegisterValues[i]=0;
@@ -234,18 +238,19 @@ bool TMC5160SPI::open(const char *deviceName) {
 
 	// Set motor current parameters
 	//
-	if(!setGlobalCurrentScaler(0))  // full global current with 0 = 256/256 of nominal power
+	if(!setRunCurrent(900))
 		return false;
-	if(!setIRun(31))  // Run current: 31=32/32 or 100% of global current
-		return false;
-	if(!setIHold(31)) // Hold current = run current for StealthChop configuration
+	if(!setHoldCurrent(900)) // Hold current = run current for StealthChop configuration
 		return false;
 	if(!setIHoldDelay(10))
 		return false;
 	if(!setTPowerDown(10))
 		return false;
 
-	if(!setInvertMotor(0))
+	if(!setInvertMotor(0)) 		// FIXME: should come from stored config data
+		return false;
+
+	if(!setRegister(TMCR_SW_MODE, 0))  // Disable all switches and StallGuard for now
 		return false;
 
 	// Set a default ramp (used in auto-tuning)
@@ -301,7 +306,7 @@ bool TMC5160SPI::open(const char *deviceName) {
 		return false;
 
 	// now that configuration is complete, set hold current to proper target 
-	if(!setIHold(10)) // 33% hold current: 10=11/32 of global current
+	if(!setHoldCurrent(300)) 
 		return false;
 
 	// FIXME
@@ -320,6 +325,117 @@ bool TMC5160SPI::open(const char *deviceName) {
 	if(debugLevel>=TMC_DEBUG_ACTIONS) 
 		fprintf(debugFile, "Successfully initialized device %s\n", deviceName!=NULL ? deviceName : "NULL");
 	
+	return true;
+}
+
+bool TMC5160SPI::getSoftwareMaxCurrent(uint32_t *result_mA) {
+	uint32_t gcs;
+	if(!getGlobalCurrentScaler(&gcs))
+		return false;
+	if(gcs==0)
+		gcs=256;
+	*result_mA=(gcs*hardwareMaxCurrent_mA + 128) / 256;
+	return true;
+}
+
+// Gets motor run current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+bool TMC5160SPI::getRunCurrent(uint32_t *result_mA) {
+	uint32_t softwareMaxCurrent_mA;
+	if(!getSoftwareMaxCurrent(&softwareMaxCurrent_mA))
+		return false;
+
+	// scale down to desired hold current value with local current scaler
+	uint32_t cs;
+	if(!getIRun(&cs))
+		return false;
+	cs++;
+	*result_mA=(cs*softwareMaxCurrent_mA + 16) / 32;
+	return true;
+}
+
+// Sets motor run current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+bool TMC5160SPI::setRunCurrent(uint32_t value_mA, bool bestPerformanceHint) {
+	// cache the current hold current setting, as we are about to change the global scaler 
+	uint32_t holdCurrent_mA;
+	if(!getHoldCurrent(&holdCurrent_mA))
+		return false;
+
+	// calculate appropriate global current scaler
+	uint32_t gcs=(256*value_mA + hardwareMaxCurrent_mA/2)/hardwareMaxCurrent_mA;
+	if(gcs>=256)  // hard limit with 8-bit wraparound
+		gcs=0;
+
+	// apply operational limits and/or performance hints, see datasheet p.36
+	uint32_t lowerBound = bestPerformanceHint ? 129 : 32; 
+	if(gcs<=lowerBound)
+		gcs=lowerBound;
+
+	if(!setGlobalCurrentScaler(gcs))
+		return false;
+
+	// calculate resulting max software current
+	uint32_t softwareMaxCurrent_mA;
+	if(!getSoftwareMaxCurrent(&softwareMaxCurrent_mA))
+		return false;
+
+	// calculate local current scaler value for the target value 
+	uint32_t cs=(32*value_mA + softwareMaxCurrent_mA/2)/softwareMaxCurrent_mA;
+	if(cs>=32)
+		cs=32;
+	if(cs>0)
+		cs--;
+	if(!setIRun(cs))
+		return false;
+
+	uint32_t resulting_mA;
+	if(!getRunCurrent(&resulting_mA))
+		return false;
+	if(debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Setting run current %dmA with global scaler %d and iRun %d, resulting in %dmA\n", 
+			    value_mA, gcs, cs, resulting_mA);
+
+	// restore the hold current setting
+	return setHoldCurrent(holdCurrent_mA, true);
+}
+
+
+// Gets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+bool TMC5160SPI::getHoldCurrent(uint32_t *result_mA) {
+	uint32_t softwareMaxCurrent_mA;
+	if(!getSoftwareMaxCurrent(&softwareMaxCurrent_mA))
+		return false;
+
+	// then scale down to desired hold current value with local current scaler
+	uint32_t cs;
+	if(!getIHold(&cs))
+		return false;
+	cs++;
+	*result_mA=(cs*softwareMaxCurrent_mA + 16) / 32;
+	return true;
+}
+
+
+// Sets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+bool TMC5160SPI::setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput) {
+	uint32_t softwareMaxCurrent_mA;
+	if(!getSoftwareMaxCurrent(&softwareMaxCurrent_mA))
+		return false;
+
+	uint32_t cs=(32*value_mA + softwareMaxCurrent_mA/2)/softwareMaxCurrent_mA;
+	if(cs>=32)
+		cs=32;
+	// then calculate local current scaler value for the target value 
+	if(cs>0)
+		cs--;
+	if(!setIHold(cs))
+		return false;
+
+	uint32_t resulting_mA;
+	if(!getHoldCurrent(&resulting_mA))
+		return false;
+	if(!suppressDebugOutput && debugLevel>=TMC_DEBUG_ACTIONS) 
+		fprintf(debugFile, "Setting hold current %dmA with iRun %d, resulting in %dmA\n", 
+			    value_mA, cs, resulting_mA);
 	return true;
 }
 
@@ -391,22 +507,35 @@ bool TMC5160SPI::setTargetPosition(int32_t value) {
 
 
 bool TMC5160SPI::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
+	Timestamp start;
+
 	if(!setTargetPosition(value))
 		return false;
 
-	// wait until in position or timeout occurs
-	for(uint32_t i=0; timeoutMs==0 || i<timeoutMs; i++) {
+	// wait until position reached or timeout occurs
+	while(true) {
 		usleep(1000l);  // 1 ms
 		int32_t pos;
 		if(!getPosition(&pos))
 			return false;
+
 		if(pos==value) {
-			if(debugLevel>=TMC_DEBUG_ACTIONS)
-				fprintf(debugFile, "Reached target position at %'+d\n", value);
-			return true;
+			if(debugLevel>=TMC_DEBUG_ACTIONS) {
+				Timestamp now;
+				uint64_t elapsedMs=now.msSince(start);
+				fprintf(debugFile, "Reached target position at %'+d after %llus %llums\n", 
+					    value, elapsedMs/1000, elapsedMs%1000);
+			}
+			if(!setTargetPositionReachedEvent(1)) // clear event flag
+				return false;			
+			return true;  // position reached
 		}
+
+		Timestamp now;
+		uint64_t elapsedMs=now.msSince(start);
+		if(timeoutMs>0 && elapsedMs>(uint64_t) timeoutMs)
+			return false; // timeout
 	}
-	return false; // timeout
 }
 
 
@@ -440,13 +569,13 @@ bool TMC5160SPI::getRegister(uint8_t address, uint32_t *result) {
 				printRegister(debugFile, address, 0, deviceStatus, "get", "error register is undefined");
 			return false;
 		}   
-		*result=cachedRegisterValues[address & 0x00f7];
+		*result=cachedRegisterValues[address & (TMCR_NUM_REGISTERS-1)];
 		if(debugLevel>=TMC_DEBUG_REGISTERS)
 			printRegister(debugFile, address, *result, deviceStatus, "get", "cached");
 		return true;
 	}
 
-	uint8_t tx[5]={(uint8_t) (address & 0x007f),0,0,0,0};
+	uint8_t tx[5]={(uint8_t) (address & (TMCR_NUM_REGISTERS-1)),0,0,0,0};
 	uint8_t rx[5];
 
 	// Per the datasheet, raw send/receive returns the value requested with the PREVIOUS transfer.
@@ -477,7 +606,7 @@ bool TMC5160SPI::getRegister(uint8_t address, uint32_t *result) {
 bool TMC5160SPI::setRegister(uint8_t address, uint32_t value) {
 	if(!canWriteRegister(address)) {
 		if(debugLevel>=TMC_DEBUG_ERRORS)
-			printRegister(debugFile, address, value, 0, "set", "error register not writeable");
+			printRegister(debugFile, address, value, 0, "SET", "error register not writeable");
 		return false;
 	}
 
@@ -487,21 +616,21 @@ bool TMC5160SPI::setRegister(uint8_t address, uint32_t value) {
 	uint8_t rx[5];
 	if(!sendReceiveRaw(tx,rx,5)) {
 		if(debugLevel>=TMC_DEBUG_REGISTERS)
-			printRegister(debugFile, address, value, rx[0], "set", "error");
+			printRegister(debugFile, address, value, rx[0], "SET", "error");
 		return false;
 	}
 
 	deviceStatus=(enum TMCStatusFlags) rx[0];
 	if(deviceStatus&TMC_DRIVER_ERROR) {
 		if(debugLevel>=TMC_DEBUG_ERRORS)
-			printRegister(debugFile, address, value, rx[0], "set", "error");
+			printRegister(debugFile, address, value, rx[0], "SET", "error");
 		return false;
 	}
-	cachedRegisterValues[address & 0x007f]=value;
+	cachedRegisterValues[address & (TMCR_NUM_REGISTERS-1)]=value;
 	// result[1..4] contains the value from the previous send/receive command. Ignoring that.
 
 	if(debugLevel>=TMC_DEBUG_REGISTERS)
-		printRegister(debugFile, address, value, rx[0], "set", NULL);
+		printRegister(debugFile, address, value, rx[0], "SET", NULL);
 	return true;
 }
 
@@ -549,7 +678,7 @@ bool TMC5160SPI::printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bo
 		fprintf(f, "%s ", prefix);
 
 	if(isTX) {
-		const char *opName=data[0]<0x0080 ? "get" : "set";
+		const char *opName=data[0]<0x0080 ? "get" : "SET";
 		const char *regName=getRegisterName(data[0]);
 		fprintf(f, "%s '%-14s'", opName, regName);
 	} else {

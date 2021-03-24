@@ -203,6 +203,27 @@ public:
 	// Gets file for debug output	
 	FILE *getDebugFile() { return debugFile; }
 
+	// Get maximum current supported by the hardware based on the chosen sense resistor. See datasheet section 9, p.74. Returns true on success, else false
+	bool getHardwareMaxCurrent(uint32_t *result_mA) { *result_mA=hardwareMaxCurrent_mA; return true; }
+
+	// Set maximum current supported by the hardware based on the chosen sense resistor. See datasheet section 9, p.74. Returns true on success, else false
+	bool setHardwareMaxCurrent(uint32_t value_mA) { hardwareMaxCurrent_mA=value_mA; return true; }
+
+	// Get maximum current supported by the software based on hardware limits and chosen global current scaler. See datasheet section 9, p.74. Returns true on success, else false
+	bool getSoftwareMaxCurrent(uint32_t *result_mA);
+
+	// Gets motor run current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+	bool getRunCurrent(uint32_t *result_mA);
+
+	// Sets motor run current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+	bool setRunCurrent(uint32_t value_mA, bool bestPerformanceHint=true);
+
+	// Gets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+	bool getHoldCurrent(uint32_t *result_mA);
+
+	// Sets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
+	bool setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput=false);
+
 
 	// General configuration settings
 	//
@@ -292,7 +313,6 @@ public:
 
 	// Sets chopper enable high velocity mode 0/1 on device. Returns true on success, else false
 	bool setChopperHighVel(uint32_t value) { return setRegisterBits(TMCR_CHOPCONF, value, 19, 1); }
-
 
 	// Gets chopper micro step resolution from device. 0=native 256, 1=128, 2=64, 3=32, 4=16, 5=8, 6=4, 7=2 8=full step. Returns true on success, else false
 	bool getChopperMicroRes(uint32_t *result) { return getRegisterBits(TMCR_CHOPCONF, result, 24, 4); }
@@ -442,14 +462,36 @@ public:
 	// Gets waiting time between movements in opposite directions. In units of 512*t_clk. Returns true on success, else false
 	bool setTZeroWait(uint32_t value) { return setRegister(TMCR_TZEROWAIT, value); }
 
+	// Gets StallGuard stop enablement status 0/1 from device. Returns true on success, else false
+	bool getEnableStallGuardStop(uint32_t *result) { return getRegisterBits(TMCR_SW_MODE, result, 10, 1); }
+
+	// Sets StallGuard stop enablement status 0/1 on device. Returns true on success, else false
+	bool setEnableStallGuardStop(uint32_t value) { return setRegisterBits(TMCR_SW_MODE, value, 10, 1); }
+
+	// Gets StallGuard stop event status 0/1 from device. Returns true on success, else false
+	bool getStallGuardStopEvent(uint32_t *result) { return getRegisterBits(TMCR_RAMP_STAT, result, 6, 1); }
+
+	// Sets StallGuard stop event status 0/1 on device (write 1 to clear). Returns true on success, else false
+	bool setStallGuardStopEvent(uint32_t value) { return setRegisterBits(TMCR_RAMP_STAT, value, 6, 1); }
+	
+	// Gets target position reached event status 0/1 from device. Returns true on success, else false
+	bool getTargetPositionReachedEvent(uint32_t *result) { return getRegisterBits(TMCR_RAMP_STAT, result, 7, 1); }
+
+	// Sets target position reached event status 0/1 on device (write 1 to clear). Returns true on success, else false
+	bool setTargetPositionReachedEvent(uint32_t value) { return setRegisterBits(TMCR_RAMP_STAT, value, 7, 1); }
+	
+
+	// Register metadata functions
+	//
+
 	// Get register name. Drops the 0x80 flag used for setting registers
-	static const char *getRegisterName(uint8_t address) { return registerMetaData[address & 0x007f].name; }
+	static const char *getRegisterName(uint8_t address) { return registerMetaData[address & (TMCR_NUM_REGISTERS-1)].name; }
 
 	// Returns true if a register can be read from in hardware. Drops the 0x80 flag used for setting registers.
-	static bool canReadRegister(uint8_t address) { return registerMetaData[address & 0x007f].mode & TMCRM_R; }
+	static bool canReadRegister(uint8_t address) { return registerMetaData[address & (TMCR_NUM_REGISTERS-1)].mode & TMCRM_R; }
 
 	// Returns true if a register can be written to in harwdare. Drops the 0x80 flag used for setting registers
-	static bool canWriteRegister(uint8_t address) { return registerMetaData[address & 0x007f].mode & TMCRM_W; }
+	static bool canWriteRegister(uint8_t address) { return registerMetaData[address & (TMCR_NUM_REGISTERS-1)].mode & TMCRM_W; }
 
 
 protected:
@@ -493,6 +535,9 @@ protected:
 	// Maximum speed for GoTos. Stored separately as setTargetSpeed() overwrites VMAX on the device
 	uint32_t maxGoToSpeed;
 
+	// Maximal current supported by hardware based on the chosen sense resistor. See datasheet section 9, p.74
+	uint32_t hardwareMaxCurrent_mA;
+
 	// Last value written to write-only register TMCR_IHOLD_IRUN
 	uint32_t cachedRegisterValues[TMCR_NUM_REGISTERS];
 
@@ -519,6 +564,9 @@ protected:
 
 	// Default SPI delay in microseconds
 	static const uint32_t defaultSPIDelayUsec;
+
+	// Default maximal current supported by TMC5160-BOB. See datasheet section 9, p.74
+	static const uint32_t defaultHardwareMaxCurrent_mA;
 
 	// Table of register metadata (names etc.) 
 	static const TMCRegisterMetaData registerMetaData[];
