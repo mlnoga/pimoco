@@ -36,3 +36,36 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 |	100SP1T2B4M6QE | EG2362-ND | SWITCH TOGGLE SPDT 5A 120V | 1 |
 |	SB540 | SB540FSCT-ND | DIODE SCHOTTKY 40V 5A DO201AD | 1 |
 |	PPTC202LFBN-RC | S6104-ND | CONN HDR 40POS 0.1 TIN PCB | 1 | 
+
+## Hardware setup
+
+| Device connection            | Function           |Header|Pin| Function            | Device connection           |
+|------------------------------|--------------------|------|---|---------------------|-----------------------------|
+| TMC5160 devices 0,1,2 VCC_IO | 3.3v               |     1|  2|                     | Not connected               |
+| Not connected                |                    |     3|  4|                     | Not connected               |
+| Not connected                |                    |     5|  6| GND                 | TMC5160 devices 0,1,2 GND   |
+| Not connected                |                    |     7|  8|                     | Not connected               |
+| Not connected                |                    |     9| 10|                     | Not connected               |
+| TMC5160 device  1 CSN        | Gpio17 SPI1 CS1PIN |    11| 12| Gpio18 SPI1 CS0PIN  | TMC5160 device  0 CSN       |
+| Not connected                |                    |    13| 14|                     | Not connected               |
+| TMC5160 device 0 DIAG0       | Gpio22             |    15| 16| Gpio23              | TMC5160 device 1 DIAG0      |
+| Not connected                |                    |    17| 18| Gpio24              | TMC5160 device 2 DIAG0      |
+| Not connected                |                    |    19| 20|                     | Not connected               |
+| Not connected                |                    |    21| 22|                     | Not connected               |
+| Not connected                |                    |    23| 24|                     | Not connected               |
+| Not connected                |                    |    25| 26|                     | Not connected               |
+| Not connected                |                    |    27| 28|                     | Not connected               |
+| Not connected                |                    |    29| 30|                     | Not connected               |
+| Not connected                |                    |    31| 32| Gpio12 4(alt0) PWM0 | TMC5160 devices 0,1,2 CLK16 |
+| Not connected                |                    |    33| 34|                     | Not connected               |
+| TMC5160 devices 0,1,2 SDO    | Gpio19 SPI1 MISO   |    35| 36| Gpio16 SPI1 CE2     | TMC5160 device 2 CSN        |
+| Not connected                |                    |    37| 38| Gpio20 SPI1 MOSI    | TMC5160 devices 0,1,2 SDI   |
+| Not connected                |                    |    39| 40| Gpio21, SPI1 SCLK   | TMC5160 devices 0,1,2 SCK   | 
+
+## Raspberry Pi settings in /boot/config.txt
+
+```
+dtoverlay=spi1-3cs,cs0_pin=22,cs1_pin=23,cs2_pin=24 # for SPI
+dtoverlay=pwm-2chan,pin=12,mode=4,pin2=13,mode2=4   # for PWM to generate CLK16 signal
+dtparam=audio=off                                   # to avoid conflicts with PWM
+```
