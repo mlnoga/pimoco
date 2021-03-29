@@ -88,17 +88,19 @@ bool Stepper::open(const char *deviceName) {
 	//
 	if(!setVStart(10))
 		return false;
-	if(!setA1(1000))
+	if(!setA1(5000))
 		return false;
 	if(!setV1(50000))
 		return false;
-	if(!setAMax(500))
+	if(!setAMax(2500))
 		return false;
-	if(!setVMax(200000))
+	if(!setVMax(1000000))
 		return false;
-	if(!setDMax(700))
+	if(!setMaxGoToSpeed(1000000))
 		return false;
-	if(!setD1(1400))
+	if(!setDMax(3000))
+		return false;
+	if(!setD1(6000))
 		return false;
 	if(!setVStop(10))
 		return false;

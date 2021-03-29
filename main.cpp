@@ -58,7 +58,7 @@ int main(int argc, char ** argv) {
 
 	getAndPrintState(&stepper);
 
-	if(!stepper.setTargetPositionBlocking(10000))
+	if(!stepper.setTargetPositionBlocking(50000))
 		panicf("Error on goto");
 
 	getAndPrintState(&stepper);

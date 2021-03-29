@@ -73,7 +73,7 @@ public:
 	bool getMaxGoToSpeed(uint32_t *result) { *result=maxGoToSpeed;  return true; }
 
 	// Sets maximal motor speed. In units of 2^24/f_clk. Effective on next goto. Returns true on success, else false
-	bool getMaxGoToSpeed(uint32_t value) { maxGoToSpeed=value; return true; }
+	bool setMaxGoToSpeed(uint32_t value) { maxGoToSpeed=value; return true; }
 
 	// Get maximum current supported by the hardware based on the chosen sense resistor. See datasheet section 9, p.74. Returns true on success, else false
 	bool getHardwareMaxCurrent(uint32_t *result_mA) { *result_mA=hardwareMaxCurrent_mA; return true; }

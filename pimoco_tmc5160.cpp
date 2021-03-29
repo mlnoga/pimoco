@@ -226,11 +226,6 @@ bool TMC5160::getRegister(uint8_t address, uint32_t *result) {
 		}
 
 	deviceStatus=(enum TMCStatusFlags) rx[0];
-	if(deviceStatus&TMC_DRIVER_ERROR) {
-		if(debugLevel>=TMC_DEBUG_ERRORS)
-			printRegister(debugFile, address, *result, rx[0], "get", "error");
-		return false;
-	}
 
 	*result=(((uint32_t) rx[1])<<24) | (((uint32_t) rx[2])<<16) | 
 	        (((uint32_t) rx[3])<<8)  |  ((uint32_t) rx[4]); 
@@ -258,14 +253,18 @@ bool TMC5160::setRegister(uint8_t address, uint32_t value) {
 		return false;
 	}
 
-	deviceStatus=(enum TMCStatusFlags) rx[0];
-	if(deviceStatus&TMC_DRIVER_ERROR) {
-		if(debugLevel>=TMC_DEBUG_ERRORS)
-			printRegister(debugFile, address, value, rx[0], "SET", "error");
+	// Per the datasheet, raw send/receive returns the value requested with the PREVIOUS transfer.
+	// As SPI is not performance critical for our application, we simply send a dummy read request.
+	// Returned data must be identical to the originally set data 
+	uint8_t tx2[5]={0,0,0,0,0};
+	if(!sendReceive(tx2,rx,5) || rx[1]!=tx[1] || rx[2]!=tx[2] || rx[3]!=tx[3] || rx[4]!=tx[4]) {
+		if(debugLevel>=TMC_DEBUG_REGISTERS)
+			printRegister(debugFile, address, value, rx[0], "get", "error");
 		return false;
 	}
+
+	deviceStatus=(enum TMCStatusFlags) rx[0];
 	cachedRegisterValues[address & (TMCR_NUM_REGISTERS-1)]=value;
-	// result[1..4] contains the value from the previous send/receive command. Ignoring that.
 
 	if(debugLevel>=TMC_DEBUG_REGISTERS)
 		printRegister(debugFile, address, value, rx[0], "SET", NULL);
@@ -274,14 +273,16 @@ bool TMC5160::setRegister(uint8_t address, uint32_t value) {
 
 
 bool TMC5160::sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t len) {
-	if(debugLevel>=TMC_DEBUG_PACKETS)
+	if(debugLevel>=TMC_DEBUG_PACKETS) {
 		printPacket(debugFile, tx, len, true, "TX", NULL);
+		fprintf(debugFile, "  ");
+	}
 
 	bool res=SPI::sendReceive(tx, rx, len);
 
 	if(debugLevel>=TMC_DEBUG_PACKETS) {
 		printPacket(debugFile, rx, len, false, "RX", NULL);
-		fprintf(debugFile, "   Return %s", res?"true":"false");
+		fprintf(debugFile, "   Return %s\n", res?"true":"false");
 	}
 
 	return res;
@@ -311,7 +312,6 @@ bool TMC5160::printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool 
 		const char *regName=getRegisterName(data[0]);
 		fprintf(f, "%s '%-14s'", opName, regName);
 	} else {
-		fprintf(f, " ");
 		printStatus(f, (enum TMCStatusFlags) data[0]);
 	}
 
@@ -320,7 +320,6 @@ bool TMC5160::printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool 
 
 	if(suffix!=NULL)
 		fprintf(f, " %s", suffix);
-	fprintf(f,"\n");
 	return true;
 }
 
