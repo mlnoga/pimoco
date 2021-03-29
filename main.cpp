@@ -21,6 +21,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <locale.h> // for thousands separator
+#include <unistd.h> // for sleep
 
 #include "pimoco_stepper.h"
 
@@ -58,9 +59,38 @@ int main(int argc, char ** argv) {
 
 	getAndPrintState(&stepper);
 
-	if(!stepper.setTargetPositionBlocking(50000))
+	uint32_t fullRevolutionInUsteps=256ul*400*3*144;
+	// move by 1h of RA with 256 microsteps, 400 steps/rev, belt ratio 1:3 and Vixen worm gear ratio 1:144  
+	if(!stepper.setTargetPositionBlocking((fullRevolutionInUsteps*1ul)/24))  
 		panicf("Error on goto");
 
+	getAndPrintState(&stepper);
+
+	if(!stepper.setTargetPositionBlocking(0))
+		panicf("Error on goto");
+	
+	getAndPrintState(&stepper);
+
+	double stepperClockInHz=12000000;
+	double stepperChipTimeScaler=(double) (1ul<<24);
+	double stepperTimeUnit=stepperChipTimeScaler/stepperClockInHz;
+
+	double siderealDayInSeconds=86164.0905;
+
+	double siderealRateInUstepsPerTimeUnit=(((double)fullRevolutionInUsteps)/siderealDayInSeconds)*stepperTimeUnit;
+	uint32_t siderealRateInUstepsPerTimeUnitRounded=(uint32_t) (siderealRateInUstepsPerTimeUnit+0.5);
+	if(!stepper.setTargetSpeed(siderealRateInUstepsPerTimeUnitRounded))
+		panicf("Error on setSpeed");
+
+	for(int i=0; i<60; i++) {
+		sleep(1);
+		getAndPrintState(&stepper);
+	}
+
+	if(!stepper.setTargetSpeed(0))
+		panicf("Error on setSpeed");
+	getAndPrintState(&stepper);
+	sleep(1);
 	getAndPrintState(&stepper);
 
 	if(!stepper.setTargetPositionBlocking(0))
