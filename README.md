@@ -24,48 +24,52 @@ This is
 
 Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run live stacking etc), here are the parts you will need:
 
-| Vendor item | Digikey item | Name | Quantity |
-|-------------|--------------|------|----------|
-| TMC5160-BOB | 1460-1250-ND |  BREAKOUTBOARD WITH TMC5160 | 3 |
-| EEU-FC1J151 | P10344-ND | CAP ALUM 150UF 20% 63V RADIAL | 3	|
-|	DLS1XS5AK40X | 626-1561-ND | CONN D-SUB RCPT 9POS R/A SLDR | 3 |
-|	PJ-037AH | CP-037AH-ND | CONN PWR JACK 2X5.5MM SOLDER | 1 |
-|	PJ-002BH | CP-002BH-ND | CONN PWR JACK 2.5X5.5MM SOLDER | 1 |
-|	4527 | 36-4527-ND | FUSE HLDR CARTRIDGE 250V 5A PCB | 1 |
-|	0217005.HXP | F2395-ND | FUSE GLASS 5A 250VAC 5X20MM | 1 |
-|	100SP1T2B4M6QE | EG2362-ND | SWITCH TOGGLE SPDT 5A 120V | 1 |
-|	SB540 | SB540FSCT-ND | DIODE SCHOTTKY 40V 5A DO201AD | 1 |
-|	PPTC202LFBN-RC | S6104-ND | CONN HDR 40POS 0.1 TIN PCB | 1 | 
+| Vendor item    | Digikey item | Name                            | Quantity |
+|----------------|--------------|---------------------------------|---------:|
+| TMC5160-BOB    | 1460-1250-ND | BREAKOUTBOARD WITH TMC5160      |        3 |
+| EEU-FC1J151    | P10344-ND    | CAP ALUM 150UF 20% 63V RADIAL   |        3 |
+| DLS1XS5AK40X   | 626-1561-ND  | CONN D-SUB RCPT 9POS R/A SLDR   |        3 |
+| PJ-037AH       | CP-037AH-ND  | CONN PWR JACK 2X5.5MM SOLDER    |        1 |
+| PJ-002BH       | CP-002BH-ND  | CONN PWR JACK 2.5X5.5MM SOLDER  |        1 |
+| 4527           | 36-4527-ND   | FUSE HLDR CARTRIDGE 250V 5A PCB |        1 |
+| 0217005.HXP    | F2395-ND     | FUSE GLASS 5A 250VAC 5X20MM     |        1 |
+| 100SP1T2B4M6QE | EG2362-ND    | SWITCH TOGGLE SPDT 5A 120V      |        1 |
+| SB540          | SB540FSCT-ND | DIODE SCHOTTKY 40V 5A DO201AD   |        1 |
+| PPTC202LFBN-RC | S6104-ND     | CONN HDR 40POS 0.1 TIN PCB      |        1 | 
 
 ## Hardware setup
 
-| Device connection            | Function           |Header|Pin| Function            | Device connection           |
-|------------------------------|--------------------|------|---|---------------------|-----------------------------|
-| TMC5160 devices 0,1,2 VCC_IO | 3.3v               |     1|  2|                     | Not connected               |
-| Not connected                |                    |     3|  4|                     | Not connected               |
-| Not connected                |                    |     5|  6| GND                 | TMC5160 devices 0,1,2 GND   |
-| Not connected                |                    |     7|  8|                     | Not connected               |
-| Not connected                |                    |     9| 10|                     | Not connected               |
-| TMC5160 device  1 CSN        | Gpio17 SPI1 CS1PIN |    11| 12| Gpio18 SPI1 CS0PIN  | TMC5160 device  0 CSN       |
-| Not connected                |                    |    13| 14|                     | Not connected               |
-| TMC5160 device 0 DIAG0       | Gpio22             |    15| 16| Gpio23              | TMC5160 device 1 DIAG0      |
-| Not connected                |                    |    17| 18| Gpio24              | TMC5160 device 2 DIAG0      |
-| Not connected                |                    |    19| 20|                     | Not connected               |
-| Not connected                |                    |    21| 22|                     | Not connected               |
-| Not connected                |                    |    23| 24|                     | Not connected               |
-| Not connected                |                    |    25| 26|                     | Not connected               |
-| Not connected                |                    |    27| 28|                     | Not connected               |
-| Not connected                |                    |    29| 30|                     | Not connected               |
-| Not connected                |                    |    31| 32| Gpio12 4(alt0) PWM0 | TMC5160 devices 0,1,2 CLK16 |
-| Not connected                |                    |    33| 34|                     | Not connected               |
-| TMC5160 devices 0,1,2 SDO    | Gpio19 SPI1 MISO   |    35| 36| Gpio16 SPI1 CE2     | TMC5160 device 2 CSN        |
-| Not connected                |                    |    37| 38| Gpio20 SPI1 MOSI    | TMC5160 devices 0,1,2 SDI   |
-| Not connected                |                    |    39| 40| Gpio21, SPI1 SCLK   | TMC5160 devices 0,1,2 SCK   | 
+![First breadboard](hardware/first-breadboard.jpg)
+
+| Device connection            | Function            |Header|Pin| Function            | Device connection           |
+|-----------------------------:|--------------------:|-----:|--:|---------------------|-----------------------------|
+| TMC5160 devices 0,1,2 VCC_IO | 3.3v Power          |     1|  2| 5v Power            | N.c.                        |
+| N.c.                         | GPIO  2 I2C1 SDA    |     3|  4| 5v Power            | N.c.                        |
+| N.c.                         | GPIO  3 I2C1 SCL    |     5|  6| Ground              | TMC5160 devices 0,1,2 GND   |
+| N.c.                         | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | N.c.                        |
+| N.c.                         | Ground              |     9| 10| GPIO 15 Uart0 RX    | N.c.                        |
+| TMC5160 device  1 CSN        | GPIO 17 SPI1 CE1    |    11| 12| GPIO 18 SPI1 CE0    | TMC5160 device  0 CSN       |
+| N.c.                         | GPIO 27             |    13| 14| Ground              | N.c.                        |
+| N.c.                         | GPIO 22             |    15| 16| GPIO 23             | N.c.                        |
+| N.c.                         | 3v3 Power           |    17| 18| GPIO 24             | N.c.                        |
+| N.c.                         | GPIO 10 SPI0 MOSI   |    19| 20| Ground              | N.c.                        |
+| N.c.                         | GPIO  9 SPI0 MISO   |    21| 22| GPIO 25             | N.c.                        |
+| N.c.                         | GPIO 11 SPI0 SCLK   |    23| 24| GPIO  8 SPI0 CE0    | N.c.                        |
+| N.c.                         | Ground              |    25| 26| GPIO  7 SPI0 CE1    | N.c.                        |
+| N.c.                         | GPIO  0 EEPROM SDA  |    27| 28| GPIO  1 EEPROM SCL  | N.c.                        |
+| N.c.                         | GPIO  5             |    29| 30| Ground              | N.c.                        |
+| N.c.                         | GPIO  6             |    31| 32| GPIO 12 PWM0 4(alt0)| N.c.          |
+| N.c.                         | GPIO 13 PWM1 4(alt0)|    33| 34| GPIO 16             | N.c.                        |
+| TMC5160 devices 0,1,2 SDO    | GPIO 19 SPI1 MISO   |    35| 36| GPIO 16 SPI1 CE2    | TMC5160 device 2 CSN        |
+| N.c.                         | GPIO 26             |    37| 38| GPIO 20 SPI1 MOSI   | TMC5160 devices 0,1,2 SDI   |
+| N.c.                         | Ground              |    39| 40| GPIO 21 SPI1 SCLK   | TMC5160 devices 0,1,2 SCK   | 
+
+N.c. = Not connected
+
+
 
 ## Raspberry Pi settings in /boot/config.txt
 
 ```
-dtoverlay=spi1-3cs,cs0_pin=22,cs1_pin=23,cs2_pin=24 # for SPI
-dtoverlay=pwm-2chan,pin=12,mode=4,pin2=13,mode2=4   # for PWM to generate CLK16 signal
-dtparam=audio=off                                   # to avoid conflicts with PWM
+dtoverlay=spi1-3cs                                  # for three channels of SPI on SPI1 with standard pins
 ```
