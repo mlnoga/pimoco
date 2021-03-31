@@ -90,6 +90,8 @@ gpio -1 mode 7 alt0
 gpio -1 clock 7 9600000
 ```
 
+Install the Indi driver development environment with `sudo apt-get install libindi-dev`.
+
 Build with `make`
 
 Run standalone test with `./test`, or Indi testbed with `indiserver -v ./indi_pimoco_focuser`.
