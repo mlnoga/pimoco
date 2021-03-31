@@ -1,6 +1,7 @@
 # pimoco
 Telescope mount and focuser control with a Raspberry Pi 
 
+
 ## Motivation
 
 Why do we need a separate device to control stepper motors attached to a telescope? Often times, a Raspberry Pi 4 running Ekos/Kstars/Indi will be attached to the telescope anyway, providing plenty of compute power. Modern stepper motor controllers like the Trinamic TMC5160 have an on-board motion controller which accepts position read, set target speed and go-to commands via SPI. The Raspberry Pi has two such interfaces for a total of five devices on its GPIO port, and can generate the necessary clock signals via hardware PCM.
@@ -11,6 +12,7 @@ This is
 * inexpensive (no need for separate microcontrollers like OnStep or TeenAstro)
 * manageable (no separate device firmware, only Indi drivers which Linux package managers can update)    
 
+
 ## References
 
 * [Trinamic TMC5160 Datasheet](https://www.trinamic.com/fileadmin/assets/Products/ICs_Documents/TMC5160A_Datasheet_Rev1.14.pdf)
@@ -19,6 +21,7 @@ This is
 * [Raspberry Pi GPIO](https://www.raspberrypi.org/documentation/hardware/raspberrypi/gpio/README.md)
 * [Raspberry Pi SPI](https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md)
 * [Indi Github](https://github.com/indilib/indi)
+
 
 ## Digikey parts list
 
@@ -37,6 +40,7 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 | SB540          | SB540FSCT-ND | DIODE SCHOTTKY 40V 5A DO201AD   |        1 |
 | PPTC202LFBN-RC | S6104-ND     | CONN HDR 40POS 0.1 TIN PCB      |        1 | 
 
+
 ## Hardware setup
 
 ![First breadboard](hardware/first-breadboard.jpg)
@@ -46,7 +50,7 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 | TMC5160 devices 0,1,2 VCC_IO | 3.3v Power          |     1|  2| 5v Power            | N.c.                        |
 | N.c.                         | GPIO  2 I2C1 SDA    |     3|  4| 5v Power            | N.c.                        |
 | N.c.                         | GPIO  3 I2C1 SCL    |     5|  6| Ground              | TMC5160 devices 0,1,2 GND   |
-| N.c.                         | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | N.c.                        |
+| TMC5160 devices 0,1,2 CLK16  | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | N.c.                        |
 | N.c.                         | Ground              |     9| 10| GPIO 15 Uart0 RX    | N.c.                        |
 | TMC5160 device  1 CSN        | GPIO 17 SPI1 CE1    |    11| 12| GPIO 18 SPI1 CE0    | TMC5160 device  0 CSN       |
 | N.c.                         | GPIO 27             |    13| 14| Ground              | N.c.                        |
@@ -58,7 +62,7 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 | N.c.                         | Ground              |    25| 26| GPIO  7 SPI0 CE1    | N.c.                        |
 | N.c.                         | GPIO  0 EEPROM SDA  |    27| 28| GPIO  1 EEPROM SCL  | N.c.                        |
 | N.c.                         | GPIO  5             |    29| 30| Ground              | N.c.                        |
-| N.c.                         | GPIO  6             |    31| 32| GPIO 12 PWM0 4(alt0)| N.c.          |
+| N.c.                         | GPIO  6             |    31| 32| GPIO 12 PWM0 4(alt0)| N.c.                        |
 | N.c.                         | GPIO 13 PWM1 4(alt0)|    33| 34| GPIO 16             | N.c.                        |
 | TMC5160 devices 0,1,2 SDO    | GPIO 19 SPI1 MISO   |    35| 36| GPIO 16 SPI1 CE2    | TMC5160 device 2 CSN        |
 | N.c.                         | GPIO 26             |    37| 38| GPIO 20 SPI1 MOSI   | TMC5160 devices 0,1,2 SDI   |
@@ -67,9 +71,25 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 N.c. = Not connected
 
 
+## Software setup
 
-## Raspberry Pi settings in /boot/config.txt
+Edit the boot configuration with `sudo nano /boot/config.txt` and add the following lines at the end:
 
 ```
-dtoverlay=spi1-3cs                                  # for three channels of SPI on SPI1 with standard pins
+# Enable three SPI channels on SPI1 with standard pins for the
+# pimoco telescope mount and focuser controller
+dtoverlay=spi1-3cs
 ```
+
+Edit the runlevel configuration with `sudo nano /etc/rc.local` and add the following lines just before the final `exit 0` line:
+
+```
+# Output a 9.6 MHz clock on physical pin 7 (GPCLK0) for the 
+# pimoco telescope mount and focuser controller
+gpio -1 mode 7 alt0
+gpio -1 clock 7 9600000
+```
+
+Build with `make`
+
+Run with `./pimoco` 
