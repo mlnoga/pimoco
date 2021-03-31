@@ -51,6 +51,9 @@ public:
 	// then restores previous ramping mode afterwards. Returns true on success, else false	
 	bool syncPosition(int32_t value);
 
+	// Gets the target position for gotos. Returns true on success, else false
+	bool getTargetPosition(int32_t *result) { return getRegister(TMCR_XTARGET, (uint32_t*) result); }
+
 	// Sets the target position, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
 	bool setTargetPosition(int32_t value);
 

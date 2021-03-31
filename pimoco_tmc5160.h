@@ -152,7 +152,7 @@ public:
 	static void printStatus(FILE *f, enum TMCStatusFlags status);
 
 
-protected:
+public:
 	// General configuration settings
 	//
 
@@ -162,6 +162,7 @@ protected:
 	// Sets motor inversion flag 0/1 on device. Returns true on success, else false
 	bool setInvertMotor(uint32_t value) { return setRegisterBits(TMCR_GCONF, value, 4, 1); }
 
+protected:
 	// Gets diagnosis 0 enable on error flag 0/1 from device. Returns true on success, else false
 	bool getDiag0EnableError(uint32_t *result) { return getRegisterBits(TMCR_GCONF, result, 5, 1); }
 

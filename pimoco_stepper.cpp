@@ -69,9 +69,9 @@ bool Stepper::open(const char *deviceName) {
 
 	// Set motor current parameters
 	//
-	if(!setRunCurrent(900))
+	if(!setRunCurrent(800))
 		return false;
-	if(!setHoldCurrent(900)) // Hold current = run current for StealthChop configuration
+	if(!setHoldCurrent(800)) // Hold current = run current for StealthChop configuration
 		return false;
 	if(!setIHoldDelay(10))
 		return false;
@@ -88,19 +88,19 @@ bool Stepper::open(const char *deviceName) {
 	//
 	if(!setVStart(10))
 		return false;
-	if(!setA1(5000))
+	if(!setA1(7500*3/2))
 		return false;
-	if(!setV1(50000))
+	if(!setV1(250000*3/2))
 		return false;
-	if(!setAMax(2500))
+	if(!setAMax(2500*3/2))
 		return false;
-	if(!setVMax(1000000))
+	if(!setVMax(300000*3/2))
 		return false;
-	if(!setMaxGoToSpeed(1000000))
+	if(!setMaxGoToSpeed(300000*3/2))
 		return false;
-	if(!setDMax(3000))
+	if(!setDMax(2500*3/2))
 		return false;
-	if(!setD1(6000))
+	if(!setD1(7500*3/2))
 		return false;
 	if(!setVStop(10))
 		return false;
@@ -139,7 +139,7 @@ bool Stepper::open(const char *deviceName) {
 		return false;
 
 	// now that configuration is complete, set hold current to proper target 
-	if(!setHoldCurrent(300)) 
+	if(!setHoldCurrent(100)) 
 		return false;
 
 	// FIXME
@@ -427,7 +427,7 @@ bool Stepper::setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput) {
 	if(!getHoldCurrent(&resulting_mA))
 		return false;
 	if(!suppressDebugOutput && debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Setting hold current %dmA with iRun %d, resulting in %dmA\n", 
+		fprintf(debugFile, "Setting hold current %dmA with iHold %d, resulting in %dmA\n", 
 			    value_mA, cs, resulting_mA);
 	return true;
 }
