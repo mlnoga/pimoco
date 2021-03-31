@@ -92,4 +92,5 @@ gpio -1 clock 7 9600000
 
 Build with `make`
 
-Run with `./pimoco` 
+Run standalone test with `./test`, or Indi testbed with `indiserver -v ./indi_pimoco_focuser`.
+
