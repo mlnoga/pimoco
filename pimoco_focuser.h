@@ -44,6 +44,8 @@ public:
     virtual bool ISSnoopDevice(XMLEle *root);
 
 protected:
+    virtual bool Connect();
+    virtual bool Disconnect();
     virtual bool Handshake();
     virtual void TimerHit();
 

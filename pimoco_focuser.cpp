@@ -148,6 +148,7 @@ void PimocoFocuser::TimerHit() {
 		return;
 
 	// update state from device ...
+	LOG_INFO("Timer hit");
 	
     SetTimer(getCurrentPollingPeriod());
 }
@@ -155,10 +156,30 @@ void PimocoFocuser::TimerHit() {
 // Protected class members
 //
 
+bool PimocoFocuser::Connect() {
+	if(!stepper.open(spiDeviceFilename)) {
+		LOGF_WARN("Connection on %s failed", spiDeviceFilename);
+		return false;
+	}
+	LOGF_INFO("Connection on %s successful", spiDeviceFilename);
+
+	uint32_t pp=getPollingPeriod();
+	if (pp > 0)
+		SetTimer(pp);
+
+	return true;
+}
+
+bool PimocoFocuser::Disconnect() {
+	if(!stepper.close()) {
+		LOG_WARN("Error closing connection");
+		return false;
+	}
+	LOG_INFO("Successfully closed connection");
+	return true;
+}
+
 bool PimocoFocuser::Handshake() {
-	if(!stepper.open(spiDeviceFilename)) 
-		LOGF_WARN("Handshake on %s failed", spiDeviceFilename);
-	LOGF_INFO("Handshake on %s successful", spiDeviceFilename);
 	return true;
 }
 
