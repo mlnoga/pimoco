@@ -231,7 +231,11 @@ bool Stepper::syncPosition(int32_t value) {
 		return false;
 	if(!setRegister(TMCR_XACTUAL, value))
 		return false;
-	return setRegister(TMCR_RAMPMODE, rm);
+	if(rm!=0) 
+		return setRegister(TMCR_RAMPMODE, rm);
+	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
+		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
+	       setRegister(TMCR_XTARGET, (uint32_t) value);      // set target position to initiate movement
 }
 
 

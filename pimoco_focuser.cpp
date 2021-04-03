@@ -65,7 +65,7 @@ void ISSnoopDevice(XMLEle *root) {
 PimocoFocuser::PimocoFocuser() : spiDeviceFilename("/dev/spidev1.0") {
 	setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
     FI::SetCapability(FOCUSER_CAN_ABS_MOVE | FOCUSER_CAN_REL_MOVE | FOCUSER_CAN_ABORT | 
-    	              FOCUSER_CAN_REVERSE  | FOCUSER_CAN_SYNC     | FOCUSER_HAS_VARIABLE_SPEED);	
+    	              FOCUSER_CAN_REVERSE  | FOCUSER_CAN_SYNC     ); // | FOCUSER_HAS_VARIABLE_SPEED);	
 	setSupportedConnections(CONNECTION_NONE);
 }
 
@@ -80,6 +80,9 @@ const char *PimocoFocuser::getDefaultName() {
 bool PimocoFocuser::initProperties() {
 	if(!INDI::Focuser::initProperties()) 
 		return false;
+
+	FocusMaxPosN[0].max=2000000000;
+	IUUpdateMinMax(&FocusMaxPosNP);
 
 	// IUFill ...
 
@@ -147,8 +150,22 @@ void PimocoFocuser::TimerHit() {
 	if(!isConnected())
 		return;
 
-	// update state from device ...
-	LOG_INFO("Timer hit");
+	// update state from device
+	auto pos=0;
+	if(!stepper.getPosition(&pos)) {
+		LOG_ERROR("Error reading position");
+	    FocusAbsPosNP.s = IPS_ALERT;
+	} else {
+	    auto status=stepper.getStatus();
+	    if((FocusAbsPosNP.s==IPS_BUSY) && (status&Stepper::TMC_STAND_STILL))
+	    	LOGF_INFO("Focuser has reached position %u", pos);
+
+	    FocusAbsPosN[0].value = pos;
+	    FocusAbsPosNP.s = (status & Stepper::TMC_STAND_STILL) ? IPS_OK : IPS_BUSY;
+	    FocusRelPosNP.s = FocusAbsPosNP.s;
+	    IDSetNumber(&FocusAbsPosNP, NULL);		
+	    IDSetNumber(&FocusRelPosNP, NULL);		
+	}
 	
     SetTimer(getCurrentPollingPeriod());
 }
@@ -184,9 +201,8 @@ bool PimocoFocuser::Handshake() {
 }
 
 IPState PimocoFocuser::MoveAbsFocuser(uint32_t targetTicks) {
-	LOGF_INFO("Pimoco focuser moving to target position %u", targetTicks);
 	if(!stepper.setTargetPosition(targetTicks)) {
-		LOG_ERROR("Error setting target position");
+		LOG_ERROR("Error setting focuser target position");
 		return IPS_ALERT;
 	}
 	return IPS_BUSY;
@@ -195,50 +211,50 @@ IPState PimocoFocuser::MoveAbsFocuser(uint32_t targetTicks) {
 IPState PimocoFocuser::MoveRelFocuser(FocusDirection dir, uint32_t ticks) {
 	int32_t pos;
 	if(!stepper.getPosition(&pos)) {
-		LOG_ERROR("Error getting current position");
+		LOG_ERROR("Error getting current focuser position");
 		return IPS_ALERT;
 	}
 
 	int32_t targetPos=(dir==FOCUS_OUTWARD) ? pos + ticks : pos - ticks;
-	LOGF_INFO("Pimoco focuser moving by %c%u to target position %u", (dir==FOCUS_OUTWARD)?'+':'-', ticks, targetPos);
+	LOGF_INFO("Focuser is moving by %c%u to target position %u", (dir==FOCUS_OUTWARD)?'+':'-', ticks, targetPos);
 	if(!stepper.setTargetPosition(targetPos)) {
-		LOG_ERROR("Error setting target position");
+		LOG_ERROR("Error setting focuser target position");
 		return IPS_ALERT;
 	}
 	return IPS_BUSY;
 }
 
 bool PimocoFocuser::AbortFocuser() {
-	LOG_INFO("Stopping motion");
+	LOG_INFO("Stopping focuser motion");
 	if(!stepper.stop()) {
-		LOG_ERROR("Error stopping motion");
+		LOG_ERROR("Error stopping focuser motion");
 		return false;
 	}
 	return true;
 }
 
 bool PimocoFocuser::ReverseFocuser(bool enabled) {
-	LOGF_INFO("Setting %s direction of motion", enabled ? "reversed" : "normal");
+	LOGF_INFO("Setting direction of focuser motion to %s", enabled ? "reversed" : "normal");
 	if(!stepper.setInvertMotor(enabled)) {
-		LOG_ERROR("Error setting direction of motion");
+		LOG_ERROR("Error setting direction of focuser motion");
 		return false;
 	}
 	return true;
 }
 
 bool PimocoFocuser::SetFocuserSpeed(int speed) {
-	LOGF_INFO("Setting max speed to %d", speed);
+	LOGF_INFO("Setting focuser max speed to %d", speed);
 	if(!stepper.setMaxGoToSpeed((uint32_t) speed)) {
-		LOG_ERROR("Error stopping motion");
+		LOG_ERROR("Error setting focuser max speed");
 		return false;
 	}
 	return true;
 }
 
 bool PimocoFocuser::SyncFocuser(uint32_t ticks) {
-	LOGF_INFO("Syncing position to %u", ticks);
+	LOGF_INFO("Syncing focuser position to %u", ticks);
 	if(!stepper.syncPosition((int32_t) ticks)) {
-		LOG_ERROR("Error syncing position");
+		LOG_ERROR("Error syncing focuser position");
 		return false;
 	}
 	return true;
