@@ -42,7 +42,7 @@ public:
 	bool setTargetSpeed(int32_t value);
 
 	// Stops all current movement. Returns true on success, else false
-	bool stop() { return setTargetSpeed(0); }
+	bool stop();
 
 	// Returns the current position in the variable pointed to by result. Returns true on success, else false	
 	bool getPosition(int32_t *result) { return getRegister(TMCR_XACTUAL, (uint32_t*) result); }

@@ -211,6 +211,13 @@ bool Stepper::setTargetSpeed(int32_t value) {
 	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
 }
 
+// Stops all current movement. Returns true on success, else false
+bool Stepper::stop() {
+	uint32_t xactual;
+	if(!getRegister(TMCR_XACTUAL, &xactual))
+		return false;
+	return setTargetPosition(xactual);
+}
 
 bool Stepper::syncPosition(int32_t value) {
 	if(value<minPosition || value>maxPosition) {
