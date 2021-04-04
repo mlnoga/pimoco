@@ -69,6 +69,9 @@ protected:
     INumber CurrentMaN[2]={};
     INumberVectorProperty CurrentMaNP;
 
+    INumber RampN[9]={};
+    INumberVectorProperty RampNP;
+
 };
 
 #endif // PIMOCO_FOCUSER_H

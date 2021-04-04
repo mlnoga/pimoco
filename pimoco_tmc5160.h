@@ -331,6 +331,7 @@ protected:
 	bool setTHighThreshold(uint32_t value) { return setRegister(TMCR_THIGH, value); }
 
 
+public:
 	// Ramp configuration settings
 	//
 
@@ -388,6 +389,7 @@ protected:
 	// Gets waiting time between movements in opposite directions. In units of 512*t_clk. Returns true on success, else false
 	bool setTZeroWait(uint32_t value) { return setRegister(TMCR_TZEROWAIT, value); }
 
+protected:
 	// Gets StallGuard stop enablement status 0/1 from device. Returns true on success, else false
 	bool getEnableStallGuardStop(uint32_t *result) { return getRegisterBits(TMCR_SW_MODE, result, 10, 1); }
 

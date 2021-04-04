@@ -91,6 +91,17 @@ bool PimocoFocuser::initProperties() {
 	IUFillNumber(&CurrentMaN[1], "RUN",  "Run [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
 	IUFillNumberVector(&CurrentMaNP, CurrentMaN, 2, getDeviceName(), "CURRENT", "Current", FOCUS_TAB, IP_RW, 0, IPS_IDLE);
 
+	IUFillNumber(&RampN[0], "VSTART",    "VStart [usteps/t]",     "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
+	IUFillNumber(&RampN[1], "A1",        "A1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[2], "V1",        "V1 [usteps/t]",         "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
+	IUFillNumber(&RampN[3], "AMAX",      "AMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[4], "VMAX",      "VMax [usteps/t]",       "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 0);
+	IUFillNumber(&RampN[5], "DMAX",      "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[6], "D1",        "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[7], "VSTOP",     "VStop [usteps/t]",      "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
+	IUFillNumber(&RampN[8], "TZEROWAIT", "TZeroWait [512 t_clk]", "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumberVector(&RampNP, RampN, 9, getDeviceName(), "RAMP", "Ramp", FOCUS_TAB, IP_RW, 0, IPS_IDLE);
+
     addDebugControl();
     return true;
 }
@@ -100,22 +111,44 @@ bool PimocoFocuser::updateProperties() {
 		return false;
 
 	if(isConnected()) {
+		// currents
 		defineProperty(&CurrentMaNP);
-
 		uint32_t currentHoldMa, currentRunMa;
 		if(!stepper.getHoldCurrent(&currentHoldMa) || !stepper.getRunCurrent(&currentRunMa)) {
 		    CurrentMaNP.s = IPS_ALERT;
 		    IDSetNumber(&CurrentMaNP, NULL);				
 			return false;
-		}
+		} else {
+		    CurrentMaN[0].value = currentHoldMa;
+		    CurrentMaN[1].value = currentRunMa;
+		    CurrentMaNP.s = IPS_OK;
+		    IDSetNumber(&CurrentMaNP, NULL);
+	    }				
 
-	    CurrentMaN[0].value = currentHoldMa;
-	    CurrentMaN[1].value = currentRunMa;
-	    CurrentMaNP.s = IPS_OK;
-	    IDSetNumber(&CurrentMaNP, NULL);				
-
+		// ramp
+	    defineProperty(&RampNP);
+	    uint32_t vstart, a1, v1, amax, vmax, dmax, d1, vstop, tzerowait;
+	    if(!stepper.getVStart(&vstart) || !stepper.getA1(&a1) || !stepper.getV1(&v1) || !stepper.getAMax(&amax) ||
+	       !stepper.getMaxGoToSpeed(&vmax) || 
+	       !stepper.getDMax(&dmax) || !stepper.getD1(&d1) || !stepper.getVStop(&vstop) || !stepper.getTZeroWait(&tzerowait)) {
+	       RampNP.s = IPS_ALERT;
+	       IDSetNumber(&RampNP, NULL);
+	       return false;	
+	    } else {
+	    	RampN[0].value=vstart;
+	    	RampN[1].value=a1;
+	    	RampN[2].value=v1;
+	    	RampN[3].value=amax;
+	    	RampN[4].value=vmax;
+	    	RampN[5].value=dmax;
+	    	RampN[6].value=d1;
+	    	RampN[7].value=vstop;
+	    	RampN[8].value=tzerowait;
+	    	IDSetNumber(&RampNP, NULL);
+	    }
 	} else {
 		deleteProperty(CurrentMaNP.name);
+		deleteProperty(RampNP.name);
 	}
 	return true;
 }
@@ -150,6 +183,17 @@ bool PimocoFocuser::ISNewNumber(const char *dev, const char *name, double values
         bool res=stepper.setHoldCurrent((uint32_t) round(values[0])) && 
                  stepper.setRunCurrent ((uint32_t) round(values[1]))    ;
         return ISUpdateNumber(&CurrentMaNP, values, names, n, res);
+    } else if(!strcmp(name, RampNP.name)) {
+    	bool res=stepper.setVStart((uint32_t) round(values[0])) &&
+    			 stepper.setA1((uint32_t) round(values[1])) &&
+    			 stepper.setV1((uint32_t) round(values[2])) &&
+    			 stepper.setAMax((uint32_t) round(values[3])) &&
+    			 stepper.setMaxGoToSpeed((uint32_t) round(values[4])) &&
+    			 stepper.setDMax((uint32_t) round(values[5])) &&
+    			 stepper.setD1((uint32_t) round(values[6])) &&
+    			 stepper.setVStop((uint32_t) round(values[7])) &&
+    			 stepper.setTZeroWait((uint32_t) round(values[8]))    ;
+        return ISUpdateNumber(&RampNP, values, names, n, res);
     }
     
 	return INDI::Focuser::ISNewNumber(dev, name, values, names, n);
