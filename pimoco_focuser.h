@@ -43,6 +43,9 @@ public:
     virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n);
     virtual bool ISSnoopDevice(XMLEle *root);
 
+    // Updates number vector property with the given values if res is true and display status IPS_OK, else display status IPS_ALERT. Returns res for convenience. 
+    bool ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res);
+
 protected:
     virtual bool Connect();
     virtual bool Disconnect();
@@ -59,6 +62,13 @@ protected:
 	Stepper stepper;
 
     const char *spiDeviceFilename;
+
+    // UI controls
+    //
+
+    INumber CurrentMaN[2]={};
+    INumberVectorProperty CurrentMaNP;
+
 };
 
 #endif // PIMOCO_FOCUSER_H

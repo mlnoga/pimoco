@@ -19,7 +19,7 @@
 
 #include "pimoco_focuser.h"
 #include <libindi/indilogger.h>
-
+#include <math.h> // for round()
 
 #define CDRIVER_VERSION_MAJOR	1
 #define CDRIVER_VERSION_MINOR	0
@@ -84,7 +84,12 @@ bool PimocoFocuser::initProperties() {
 	FocusMaxPosN[0].max=2000000000;
 	IUUpdateMinMax(&FocusMaxPosNP);
 
-	// IUFill ...
+	uint32_t currentHwMaxMa;
+	stepper.getHardwareMaxCurrent(&currentHwMaxMa);
+
+	IUFillNumber(&CurrentMaN[0], "HOLD", "Hold [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
+	IUFillNumber(&CurrentMaN[1], "RUN",  "Run [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
+	IUFillNumberVector(&CurrentMaNP, CurrentMaN, 2, getDeviceName(), "CURRENT", "Current", FOCUS_TAB, IP_RW, 0, IPS_IDLE);
 
     addDebugControl();
     return true;
@@ -95,9 +100,22 @@ bool PimocoFocuser::updateProperties() {
 		return false;
 
 	if(isConnected()) {
-		// defineProperty(...)
+		defineProperty(&CurrentMaNP);
+
+		uint32_t currentHoldMa, currentRunMa;
+		if(!stepper.getHoldCurrent(&currentHoldMa) || !stepper.getRunCurrent(&currentRunMa)) {
+		    CurrentMaNP.s = IPS_ALERT;
+		    IDSetNumber(&CurrentMaNP, NULL);				
+			return false;
+		}
+
+	    CurrentMaN[0].value = currentHoldMa;
+	    CurrentMaN[1].value = currentRunMa;
+	    CurrentMaNP.s = IPS_OK;
+	    IDSetNumber(&CurrentMaNP, NULL);				
+
 	} else {
-		// deleteProperty(...)
+		deleteProperty(CurrentMaNP.name);
 	}
 	return true;
 }
@@ -115,11 +133,24 @@ bool PimocoFocuser::ISNewBLOB(const char *dev, const char *name, int sizes[], in
 	return INDI::Focuser::ISNewBLOB(dev, name, sizes, blobsizes, blobs, formats, names, n);
 }
 
+bool PimocoFocuser::ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res) 
+{
+	if(res)
+		IUUpdateNumber(NP, values, names, n);               
+	NP->s=res ? IPS_OK : IPS_ALERT;
+	IDSetNumber(NP, NULL);
+	return res;
+}
+
 bool PimocoFocuser::ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n) {
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Focuser::ISNewNumber(dev, name, values, names, n);
 
-    // if(strcmp(name, ...)) { } else
+    if(!strcmp(name, CurrentMaNP.name)) { 
+        bool res=stepper.setHoldCurrent((uint32_t) round(values[0])) && 
+                 stepper.setRunCurrent ((uint32_t) round(values[1]))    ;
+        return ISUpdateNumber(&CurrentMaNP, values, names, n, res);
+    }
     
 	return INDI::Focuser::ISNewNumber(dev, name, values, names, n);
 }
