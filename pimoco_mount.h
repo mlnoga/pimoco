@@ -78,7 +78,8 @@ protected:
     INumberVectorProperty DecRampNP;
 
 public:
-    static const char *MOUNT_TAB;
+    static const char *HA_TAB;
+    static const char *DEC_TAB;
 };
 
 #endif // PIMOCO_MOUNT_H

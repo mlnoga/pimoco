@@ -22,6 +22,7 @@
 #define PIMOCO_STEPPER_H
 
 #include "pimoco_tmc5160.h"
+#include <libindi/indidevapi.h>
 
 // Higher-level stepper functions, building on the underlying implementation of TMC5160 stepper registers
 class Stepper : public TMC5160 {
@@ -100,6 +101,29 @@ public:
 	// Sets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
 	bool setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput=false);
 
+
+	// Indi UI
+	//
+
+	// Initialize INDI UI properties
+	void initProperties(INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+	                    INumber *RampN, INumberVectorProperty *RampNP, 
+                        const char *currentLabel, const char *currentName,
+                        const char *rampLabel, const char *rampName, 
+	                    const char *tabName);
+
+	// Update INDI UI properties based on connection status. Returns true on success, else false
+	bool updateProperties(INDI::DefaultDevice *iDevice,
+					      INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+	                      INumber *RampN, INumberVectorProperty *RampNP);
+
+	// Update stepper based on new values coming from UI. 
+	// Returns 1 if successful, 0 if unsuccessful, -1 if handler not applicable for this name
+	int ISNewNumber(INumberVectorProperty *CurrentMaNP, INumberVectorProperty *RampNP,
+                    const char *name, double values[], char *names[], int n);
+
+    // Updates number vector property with the given values if res is true and display status IPS_OK, else display status IPS_ALERT. Returns res for convenience. 
+    bool ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res);
 
 protected:
 	// Runs automatic chopper tuning procedure, as per TMC5160A datasheet section 7.1, p.57ff

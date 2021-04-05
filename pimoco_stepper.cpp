@@ -24,6 +24,7 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <cstdio>
+#include <math.h> // for round()
 #include <sys/time.h>  // for gettimeofday() etc.
 #include <libindi/indilogger.h> // for LOG_..., LOGF_... macros
 
@@ -432,3 +433,107 @@ bool Stepper::setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput) {
 	return true;
 }
 
+
+void Stepper::initProperties(INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+	                         INumber *RampN, INumberVectorProperty *RampNP, 
+	                         const char *currentVarName, const char *currentUILabel,
+	                         const char *rampVarName, const char *rampUILabel, 
+	                         const char *tabName) {
+
+	uint32_t currentHwMaxMa;
+	getHardwareMaxCurrent(&currentHwMaxMa);
+
+	IUFillNumber(&CurrentMaN[0], "HOLD", "Hold [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
+	IUFillNumber(&CurrentMaN[1], "RUN",  "Run [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
+	IUFillNumberVector(CurrentMaNP, CurrentMaN, 2, getDeviceName(), currentVarName, currentUILabel, tabName, IP_RW, 0, IPS_IDLE);
+
+	IUFillNumber(&RampN[0], "VSTART",    "VStart [usteps/t]",     "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
+	IUFillNumber(&RampN[1], "A1",        "A1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[2], "V1",        "V1 [usteps/t]",         "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
+	IUFillNumber(&RampN[3], "AMAX",      "AMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[4], "VMAX",      "VMax [usteps/t]",       "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 0);
+	IUFillNumber(&RampN[5], "DMAX",      "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[6], "D1",        "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[7], "VSTOP",     "VStop [usteps/t]",      "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
+	IUFillNumber(&RampN[8], "TZEROWAIT", "TZeroWait [512 t_clk]", "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumberVector(RampNP, RampN, 9, getDeviceName(), rampVarName, rampUILabel, tabName, IP_RW, 0, IPS_IDLE);
+}
+
+
+bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
+							   INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+	                           INumber *RampN, INumberVectorProperty *RampNP) {
+	if(iDevice->isConnected()) {
+		// Current settings
+		iDevice->defineProperty(CurrentMaNP);
+		uint32_t currentHoldMa, currentRunMa;
+		if(!getHoldCurrent(&currentHoldMa) || !getRunCurrent(&currentRunMa)) {
+		    CurrentMaNP->s = IPS_ALERT;
+		    IDSetNumber(CurrentMaNP, NULL);				
+			return false;
+		} else {
+		    CurrentMaN[0].value = currentHoldMa;
+		    CurrentMaN[1].value = currentRunMa;
+		    CurrentMaNP->s = IPS_OK;
+		    IDSetNumber(CurrentMaNP, NULL);
+	    }				
+
+		// Ramp settings
+	    iDevice->defineProperty(RampNP);
+	    uint32_t vstart, a1, v1, amax, vmax, dmax, d1, vstop, tzerowait;
+	    if(!getVStart(&vstart) || !getA1(&a1) || !getV1(&v1) || !getAMax(&amax) ||
+	       !getMaxGoToSpeed(&vmax) || 
+	       !getDMax(&dmax) || !getD1(&d1) || !getVStop(&vstop) || !getTZeroWait(&tzerowait)) {
+	       RampNP->s = IPS_ALERT;
+	       IDSetNumber(RampNP, NULL);
+	       return false;	
+	    } else {
+	    	RampN[0].value=vstart;
+	    	RampN[1].value=a1;
+	    	RampN[2].value=v1;
+	    	RampN[3].value=amax;
+	    	RampN[4].value=vmax;
+	    	RampN[5].value=dmax;
+	    	RampN[6].value=d1;
+	    	RampN[7].value=vstop;
+	    	RampN[8].value=tzerowait;
+	    	IDSetNumber(RampNP, NULL);
+	    }
+	} else {
+		iDevice->deleteProperty(CurrentMaNP->name);
+		iDevice->deleteProperty(RampNP->name);
+	}
+	return true;
+}
+
+
+int Stepper::ISNewNumber(INumberVectorProperty *CurrentMaNP, INumberVectorProperty *RampNP,
+                         const char *name, double values[], char *names[], int n) {
+    if(!strcmp(name, CurrentMaNP->name)) { 
+        bool res=setHoldCurrent((uint32_t) round(values[0])) && 
+                 setRunCurrent ((uint32_t) round(values[1]))    ;
+        return ISUpdateNumber(CurrentMaNP, values, names, n, res) ? 1 : 0;
+    } else if(!strcmp(name, RampNP->name)) {
+    	bool res=setVStart((uint32_t) round(values[0])) &&
+    			 setA1((uint32_t) round(values[1])) &&
+    			 setV1((uint32_t) round(values[2])) &&
+    			 setAMax((uint32_t) round(values[3])) &&
+    			 setMaxGoToSpeed((uint32_t) round(values[4])) &&
+    			 setDMax((uint32_t) round(values[5])) &&
+    			 setD1((uint32_t) round(values[6])) &&
+    			 setVStop((uint32_t) round(values[7])) &&
+    			 setTZeroWait((uint32_t) round(values[8]))    ;
+        return ISUpdateNumber(RampNP, values, names, n, res) ? 1 : 0; 
+    }
+    
+    return -1;
+}
+
+bool Stepper::ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res) 
+{
+	if(res)
+		IUUpdateNumber(NP, values, names, n);               
+	NP->s=res ? IPS_OK : IPS_ALERT;
+	IDSetNumber(NP, NULL);
+	return res;
+}

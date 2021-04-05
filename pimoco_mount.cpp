@@ -19,7 +19,6 @@
 
 #include "pimoco_mount.h"
 #include <libindi/indilogger.h>
-#include <math.h> // for round()
 
 #define CDRIVER_VERSION_MAJOR	1
 #define CDRIVER_VERSION_MINOR	0
@@ -29,7 +28,8 @@
 PimocoMount mount;
 
 // Name of the mount tab
-const char *PimocoMount::MOUNT_TAB="Mount";
+const char *PimocoMount::HA_TAB="Hour angle";
+const char *PimocoMount::DEC_TAB="Declination";
 
 
 // C function interface redirecting to singleton
@@ -102,44 +102,10 @@ bool PimocoMount::initProperties() {
 	if(!INDI::Telescope::initProperties()) 
 		return false;
 
-	// HA controls
-	uint32_t currentHwMaxMaHA;
-	stepperHA.getHardwareMaxCurrent(&currentHwMaxMaHA);
-
-	IUFillNumber(&HACurrentMaN[0], "HOLD", "Hold [mA]", "%.0f", 0, currentHwMaxMaHA, currentHwMaxMaHA/100, 0);
-	IUFillNumber(&HACurrentMaN[1], "RUN",  "Run [mA]",  "%.0f", 0, currentHwMaxMaHA, currentHwMaxMaHA/100, 0);
-	IUFillNumberVector(&HACurrentMaNP, HACurrentMaN, 2, getDeviceName(), "HA_CURRENT", "HA Current", MOUNT_TAB, IP_RW, 0, IPS_IDLE);
-
-	IUFillNumber(&HARampN[0], "VSTART",    "VStart [usteps/t]",     "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
-	IUFillNumber(&HARampN[1], "A1",        "A1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&HARampN[2], "V1",        "V1 [usteps/t]",         "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
-	IUFillNumber(&HARampN[3], "AMAX",      "AMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&HARampN[4], "VMAX",      "VMax [usteps/t]",       "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 0);
-	IUFillNumber(&HARampN[5], "DMAX",      "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&HARampN[6], "D1",        "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&HARampN[7], "VSTOP",     "VStop [usteps/t]",      "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
-	IUFillNumber(&HARampN[8], "TZEROWAIT", "TZeroWait [512 t_clk]", "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumberVector(&HARampNP, HARampN, 9, getDeviceName(), "HA_RAMP", "HA Ramp", MOUNT_TAB, IP_RW, 0, IPS_IDLE);
-
-
-	// Decl controls
-	uint32_t currentHwMaxMaDec;
-	stepperDec.getHardwareMaxCurrent(&currentHwMaxMaDec);
-
-	IUFillNumber(&DecCurrentMaN[0], "HOLD", "Hold [mA]", "%.0f", 0, currentHwMaxMaDec, currentHwMaxMaDec/100, 0);
-	IUFillNumber(&DecCurrentMaN[1], "RUN",  "Run [mA]",  "%.0f", 0, currentHwMaxMaDec, currentHwMaxMaDec/100, 0);
-	IUFillNumberVector(&DecCurrentMaNP, DecCurrentMaN, 2, getDeviceName(), "DEC_CURRENT", "Dec Current", MOUNT_TAB, IP_RW, 0, IPS_IDLE);
-
-	IUFillNumber(&DecRampN[0], "VSTART",    "VStart [usteps/t]",     "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
-	IUFillNumber(&DecRampN[1], "A1",        "A1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&DecRampN[2], "V1",        "V1 [usteps/t]",         "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
-	IUFillNumber(&DecRampN[3], "AMAX",      "AMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&DecRampN[4], "VMAX",      "VMax [usteps/t]",       "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 0);
-	IUFillNumber(&DecRampN[5], "DMAX",      "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&DecRampN[6], "D1",        "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&DecRampN[7], "VSTOP",     "VStop [usteps/t]",      "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
-	IUFillNumber(&DecRampN[8], "TZEROWAIT", "TZeroWait [512 t_clk]", "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumberVector(&DecRampNP, DecRampN, 9, getDeviceName(), "DEC_RAMP", "Dec Ramp", MOUNT_TAB, IP_RW, 0, IPS_IDLE);
+	stepperHA .initProperties( HACurrentMaN, & HACurrentMaNP,  HARampN, & HARampNP,  
+							  "HA_CURRENT", "Current", "HA_RAMP", "Ramp", HA_TAB);
+	stepperDec.initProperties(DecCurrentMaN, &DecCurrentMaNP, DecRampN, &DecRampNP, 
+							  "DEC_CURRENT", "Current", "DEC_RAMP", "Ramp", DEC_TAB);
 
     addDebugControl();
     return true;
@@ -149,83 +115,17 @@ bool PimocoMount::updateProperties() {
 	if(!INDI::Telescope::updateProperties())
 		return false;
 
+	if(!stepperHA .updateProperties(this,  HACurrentMaN, & HACurrentMaNP,  HARampN, & HARampNP))
+		return false;
+	if(!stepperDec.updateProperties(this, DecCurrentMaN, &DecCurrentMaNP, DecRampN, &DecRampNP))
+		return false;
+
 	if(isConnected()) {
-		// HA currents
-		defineProperty(&HACurrentMaNP);
-		uint32_t currentHoldMa, currentRunMa;
-		if(!stepperHA.getHoldCurrent(&currentHoldMa) || !stepperHA.getRunCurrent(&currentRunMa)) {
-		    HACurrentMaNP.s = IPS_ALERT;
-		    IDSetNumber(&HACurrentMaNP, NULL);				
-			return false;
-		} else {
-		    HACurrentMaN[0].value = currentHoldMa;
-		    HACurrentMaN[1].value = currentRunMa;
-		    HACurrentMaNP.s = IPS_OK;
-		    IDSetNumber(&HACurrentMaNP, NULL);
-	    }				
-
-		// HA ramp
-	    defineProperty(&HARampNP);
-	    uint32_t vstart, a1, v1, amax, vmax, dmax, d1, vstop, tzerowait;
-	    if(!stepperHA.getVStart(&vstart) || !stepperHA.getA1(&a1) || !stepperHA.getV1(&v1) || !stepperHA.getAMax(&amax) ||
-	       !stepperHA.getMaxGoToSpeed(&vmax) || 
-	       !stepperHA.getDMax(&dmax) || !stepperHA.getD1(&d1) || !stepperHA.getVStop(&vstop) || !stepperHA.getTZeroWait(&tzerowait)) {
-	       HARampNP.s = IPS_ALERT;
-	       IDSetNumber(&HARampNP, NULL);
-	       return false;	
-	    } else {
-	    	HARampN[0].value=vstart;
-	    	HARampN[1].value=a1;
-	    	HARampN[2].value=v1;
-	    	HARampN[3].value=amax;
-	    	HARampN[4].value=vmax;
-	    	HARampN[5].value=dmax;
-	    	HARampN[6].value=d1;
-	    	HARampN[7].value=vstop;
-	    	HARampN[8].value=tzerowait;
-	    	IDSetNumber(&HARampNP, NULL);
-	    }
-
-		// Dec currents
-		defineProperty(&DecCurrentMaNP);
-		if(!stepperDec.getHoldCurrent(&currentHoldMa) || !stepperDec.getRunCurrent(&currentRunMa)) {
-		    DecCurrentMaNP.s = IPS_ALERT;
-		    IDSetNumber(&DecCurrentMaNP, NULL);				
-			return false;
-		} else {
-		    DecCurrentMaN[0].value = currentHoldMa;
-		    DecCurrentMaN[1].value = currentRunMa;
-		    DecCurrentMaNP.s = IPS_OK;
-		    IDSetNumber(&DecCurrentMaNP, NULL);
-	    }				
-
-		// Dec ramp
-	    defineProperty(&DecRampNP);
-	    if(!stepperDec.getVStart(&vstart) || !stepperDec.getA1(&a1) || !stepperDec.getV1(&v1) || !stepperDec.getAMax(&amax) ||
-	       !stepperDec.getMaxGoToSpeed(&vmax) || 
-	       !stepperDec.getDMax(&dmax) || !stepperDec.getD1(&d1) || !stepperDec.getVStop(&vstop) || !stepperDec.getTZeroWait(&tzerowait)) {
-	       DecRampNP.s = IPS_ALERT;
-	       IDSetNumber(&DecRampNP, NULL);
-	       return false;	
-	    } else {
-	    	DecRampN[0].value=vstart;
-	    	DecRampN[1].value=a1;
-	    	DecRampN[2].value=v1;
-	    	DecRampN[3].value=amax;
-	    	DecRampN[4].value=vmax;
-	    	DecRampN[5].value=dmax;
-	    	DecRampN[6].value=d1;
-	    	DecRampN[7].value=vstop;
-	    	DecRampN[8].value=tzerowait;
-	    	IDSetNumber(&DecRampNP, NULL);
-	    }
-
+		// ...
 	} else {
-		deleteProperty(HACurrentMaNP.name);
-		deleteProperty(HARampNP.name);
-		deleteProperty(HACurrentMaNP.name);
-		deleteProperty(HARampNP.name);
+		// ...
 	}
+
 	return true;
 }
 
@@ -255,37 +155,12 @@ bool PimocoMount::ISNewNumber(const char *dev, const char *name, double values[]
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Telescope::ISNewNumber(dev, name, values, names, n);
 
-    if(!strcmp(name, HACurrentMaNP.name)) { 
-        bool res=stepperHA.setHoldCurrent((uint32_t) round(values[0])) && 
-                 stepperHA.setRunCurrent ((uint32_t) round(values[1]))    ;
-        return ISUpdateNumber(&HACurrentMaNP, values, names, n, res);
-    } else if(!strcmp(name, HARampNP.name)) {
-    	bool res=stepperHA.setVStart((uint32_t) round(values[0])) &&
-    			 stepperHA.setA1((uint32_t) round(values[1])) &&
-    			 stepperHA.setV1((uint32_t) round(values[2])) &&
-    			 stepperHA.setAMax((uint32_t) round(values[3])) &&
-    			 stepperHA.setMaxGoToSpeed((uint32_t) round(values[4])) &&
-    			 stepperHA.setDMax((uint32_t) round(values[5])) &&
-    			 stepperHA.setD1((uint32_t) round(values[6])) &&
-    			 stepperHA.setVStop((uint32_t) round(values[7])) &&
-    			 stepperHA.setTZeroWait((uint32_t) round(values[8]))    ;
-        return ISUpdateNumber(&HARampNP, values, names, n, res);
-    } else if(!strcmp(name, DecCurrentMaNP.name)) { 
-        bool res=stepperDec.setHoldCurrent((uint32_t) round(values[0])) && 
-                 stepperDec.setRunCurrent ((uint32_t) round(values[1]))    ;
-        return ISUpdateNumber(&DecCurrentMaNP, values, names, n, res);
-    } else if(!strcmp(name, DecRampNP.name)) {
-    	bool res=stepperDec.setVStart((uint32_t) round(values[0])) &&
-    			 stepperDec.setA1((uint32_t) round(values[1])) &&
-    			 stepperDec.setV1((uint32_t) round(values[2])) &&
-    			 stepperDec.setAMax((uint32_t) round(values[3])) &&
-    			 stepperDec.setMaxGoToSpeed((uint32_t) round(values[4])) &&
-    			 stepperDec.setDMax((uint32_t) round(values[5])) &&
-    			 stepperDec.setD1((uint32_t) round(values[6])) &&
-    			 stepperDec.setVStop((uint32_t) round(values[7])) &&
-    			 stepperDec.setTZeroWait((uint32_t) round(values[8]))    ;
-        return ISUpdateNumber(&DecRampNP, values, names, n, res);
-    }
+	int res=stepperHA.ISNewNumber(&HACurrentMaNP, &HARampNP, name, values, names, n);
+	if(res>=0)
+		return res>0;
+	res=stepperDec.ISNewNumber(&DecCurrentMaNP, &DecRampNP, name, values, names, n);
+	if(res>=0)
+		return res>0;
     
 	return INDI::Telescope::ISNewNumber(dev, name, values, names, n);
 }
