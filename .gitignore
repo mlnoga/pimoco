@@ -31,4 +31,5 @@
 *.out
 *.app
 indi_pimoco_focuser
-test
+indi_pimoco_mount
+test_stepper
