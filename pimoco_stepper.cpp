@@ -25,6 +25,7 @@
 #include <linux/spi/spidev.h>
 #include <cstdio>
 #include <sys/time.h>  // for gettimeofday() etc.
+#include <libindi/indilogger.h> // for LOG_..., LOGF_... macros
 
 #include "pimoco_stepper.h"
 #include "pimoco_time.h"
@@ -36,7 +37,7 @@ const int32_t  Stepper::defaultMaxPosition= 1000ul*1000ul*256ul;
 const int32_t  Stepper::defaultMaxGoToSpeed=100000;
 
 
-Stepper::Stepper() : TMC5160(), minPosition(defaultMinPosition), maxPosition(defaultMaxPosition),
+Stepper::Stepper(const char *theIndiDeviceName) : TMC5160(theIndiDeviceName), minPosition(defaultMinPosition), maxPosition(defaultMaxPosition),
 				     maxGoToSpeed(defaultMaxGoToSpeed), hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA) {
 }
 
@@ -155,8 +156,8 @@ bool Stepper::open(const char *deviceName) {
 	// configure coolstep load adaptive current control
 	// configure high velocity mode with switch to fullstep, and enable DCStep to avoid lost steps when too fast
 
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Successfully initialized device %s\n", deviceName!=NULL ? deviceName : "NULL");
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Successfully initialized device %s", deviceName!=NULL ? deviceName : "NULL");
 	
 	return true;
 }
@@ -174,8 +175,8 @@ bool Stepper::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutM
 	int32_t startPos;
 	if(!getPosition(&startPos))
 		return false;
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Current position is %'+d\n", startPos);
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Current position is %'+d", startPos);
 
 	uint32_t microRes;
 	if(!getChopperMicroRes(&microRes))
@@ -201,8 +202,8 @@ bool Stepper::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutM
 
 
 bool Stepper::setTargetSpeed(int32_t value) {
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Setting target speed to %'+d\n", value);
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting target speed to %'+d", value);
 
 	// FIXME: min/max position limits are not checked when setting a speed.
 	// Would need a background timer with e.g. speed-based 1s lookahead.
@@ -221,14 +222,12 @@ bool Stepper::stop() {
 
 bool Stepper::syncPosition(int32_t value) {
 	if(value<minPosition || value>maxPosition) {
-		if(debugLevel>=TMC_DEBUG_ERRORS) 
-			fprintf(debugFile, "Unable to sync to position %'+d outside defined limits [%'+d, %'+d]\n", 
-				    value, minPosition, maxPosition);
+		LOGF_ERROR("Unable to sync to position %'+d outside defined limits [%'+d, %'+d]", value, minPosition, maxPosition);
 		return false;
 	}
 
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Syncing current position to %'+d\n", value);
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Syncing current position to %'+d", value);
 
 	// Syncing in positioning mode moves the axis, so we temporarily enter holding mode
 	uint32_t rm;
@@ -248,14 +247,12 @@ bool Stepper::syncPosition(int32_t value) {
 
 bool Stepper::setTargetPosition(int32_t value) {
 	if(value<minPosition || value>maxPosition) {
-		if(debugLevel>=TMC_DEBUG_ERRORS) 
-			fprintf(debugFile, "Unable to set target position %'+d outside defined limits [%'+d, %'+d]\n", 
-				    value, minPosition, maxPosition);
+		LOGF_ERROR("Unable to set target position %'+d outside defined limits [%'+d, %'+d]", value, minPosition, maxPosition);
 		return false;
 	}
 
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Setting target position to %'+d\n", value);
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting target position to %'+d", value);
 
 	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
 		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
@@ -277,12 +274,10 @@ bool Stepper::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
 			return false;
 
 		if(pos==value) {
-			if(debugLevel>=TMC_DEBUG_ACTIONS) {
-				Timestamp now;
-				uint64_t elapsedMs=now.msSince(start);
-				fprintf(debugFile, "Reached target position at %'+d after %d polls in %llus %llums\n", 
-					    value, i, elapsedMs/1000, elapsedMs%1000);
-			}
+			Timestamp now;
+			uint64_t elapsedMs=now.msSince(start);
+			if(debugLevel>=TMC_DEBUG_DEBUG)
+				LOGF_DEBUG("Reached target position at %'+d after %d polls in %llus %llums", value, i, elapsedMs/1000, elapsedMs%1000);
 			if(!setTargetPositionReachedEvent(1)) // clear event flag
 				return false;			
 			return true;  // position reached
@@ -301,14 +296,12 @@ bool Stepper::setMinPosition(int32_t value) {
 	if(!getPosition(&currentPos))
 		return false;
 	if(currentPos<value) {
-		if(debugLevel>=TMC_DEBUG_ERRORS) 
-			fprintf(debugFile, "Unable to set minimum position limit %'+d above current position %'+d\n", 
-				    value, currentPos);
+		LOGF_ERROR("Unable to set minimum position limit %'+d above current position %'+d", value, currentPos);
 		return false;
 	}
 
-	if(debugLevel>=TMC_DEBUG_ACTIONS)
-		fprintf(debugFile, "Setting minimum position limit to %'+d\n", value);
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting minimum position limit to %'+d", value);
 	minPosition=value; 
 	return true; 
 }
@@ -319,14 +312,12 @@ bool Stepper::setMaxPosition(int32_t value) {
 	if(!getPosition(&currentPos))
 		return false;
 	if(currentPos>value) {
-		if(debugLevel>=TMC_DEBUG_ERRORS) 
-			fprintf(debugFile, "Unable to set maximum position limit %'+d below current position %'+d\n", 
-				    value, currentPos);
+		LOGF_ERROR("Unable to set maximum position limit %'+d below current position %'+d", value, currentPos);
 		return false;
 	}
 
-	if(debugLevel>=TMC_DEBUG_ACTIONS)
-		fprintf(debugFile, "Setting maximum position limit to %'+d\n", value);
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting maximum position limit to %'+d", value);
 	maxPosition=value; 
 	return true; 
 }
@@ -394,9 +385,8 @@ bool Stepper::setRunCurrent(uint32_t value_mA, bool bestPerformanceHint) {
 	uint32_t resulting_mA;
 	if(!getRunCurrent(&resulting_mA))
 		return false;
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Setting run current %dmA with global scaler %d and iRun %d, resulting in %dmA\n", 
-			    value_mA, gcs, cs, resulting_mA);
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting run current %dmA with global scaler %d and iRun %d, resulting in %dmA", value_mA, gcs, cs, resulting_mA);
 
 	// restore the hold current setting
 	return setHoldCurrent(holdCurrent_mA, true);
@@ -437,9 +427,8 @@ bool Stepper::setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput) {
 	uint32_t resulting_mA;
 	if(!getHoldCurrent(&resulting_mA))
 		return false;
-	if(!suppressDebugOutput && debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Setting hold current %dmA with iHold %d, resulting in %dmA\n", 
-			    value_mA, cs, resulting_mA);
+	if(!suppressDebugOutput && debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting hold current %dmA with iHold %d, resulting in %dmA", value_mA, cs, resulting_mA);
 	return true;
 }
 

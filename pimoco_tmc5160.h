@@ -140,7 +140,7 @@ public:
 	};
 
 	// Creates a TMC5160 stepper connected via SPI
-	TMC5160();
+	TMC5160(const char *theIndiDeviceName);
 
 	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
 	~TMC5160() { }
@@ -148,8 +148,8 @@ public:
 	// Returns the device status flags from the latest command	
 	enum TMCStatusFlags getStatus() { return deviceStatus; }
 
-	// Prints status flags
-	static void printStatus(FILE *f, enum TMCStatusFlags status);
+	// Prints status flags. Returns number of characters printed, excluding the terminating zero.
+	static int printStatus(char *buffer, int bufsize, enum TMCStatusFlags status);
 
 
 public:
@@ -439,11 +439,11 @@ protected:
 
 	virtual bool sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t numBytes);
 
-	// Prints a packet to stdout with given prefix and suffix (if non-NULL). Returns true on success, else false
-	static bool printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix);
+	// Prints a packet into given buffer given prefix and suffix (if non-NULL). Returns number of bytes printed, excluding trailing zero
+	static int printPacket(char *buffer, int bufsize, const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix);
 
-	// Prints a register get/set command
-	static void printRegister(FILE *f, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix);
+	// Prints a register get/set command. Returns number of bytes printed, excluding trailing zero
+	static int printRegister(char *buffer, int bufsize, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix);
 
 
 	// Device status returned by the last SPI datagram

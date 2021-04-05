@@ -28,14 +28,16 @@ class SPI {
 public:
 	// Driver debugging level
 	enum DriverDebugLevel : int {
-		TMC_DEBUG_ERRORS    = 0,
-		TMC_DEBUG_ACTIONS   = 1,
-		TMC_DEBUG_REGISTERS = 2,
-		TMC_DEBUG_PACKETS   = 3,
+		TMC_DEBUG_ERROR     = 0,
+		TMC_DEBUG_WARNING   = 1,
+		TMC_DEBUG_INFO      = 2,
+		TMC_DEBUG_DEBUG     = 3,
+		TMC_DEBUG_REGISTERS = 4,
+		TMC_DEBUG_PACKETS   = 5,
 	};
 
 	// Creates device connected via SPI
-	SPI() : fd(-1), debugFile(stdout) { }
+	SPI(const char *theIndiDeviceName) : fd(-1), debugLevel(TMC_DEBUG_DEBUG), indiDeviceName(theIndiDeviceName) { }
 
 	// Destroys this device connected via SPI
 	~SPI() { close(); }
@@ -59,11 +61,8 @@ public:
 	// Sets driver debugging level
 	void setDebugLevel(enum DriverDebugLevel value) { debugLevel=value; }
 
-	// Gets file for debug output	
-	FILE *getDebugFile() const { return debugFile; }
-
-	// Sets file for debug output
-	void setDebugFile(FILE *f) { debugFile=f; }
+	// Get Indi device name. Used by logging macros
+	const char *getDeviceName() const { return indiDeviceName; }
 
 
 protected:
@@ -73,8 +72,8 @@ protected:
 	// Debug level
 	enum DriverDebugLevel debugLevel;
 
-	// File for debug output 
-	FILE *debugFile;
+	// INDI device name. Used by logging macros
+	const char *indiDeviceName;
 
 public:
 	// Default SPI device

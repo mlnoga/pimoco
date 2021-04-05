@@ -22,8 +22,28 @@
 #include <stdlib.h>
 #include <locale.h> // for thousands separator
 #include <unistd.h> // for sleep
+#include <libindi/indifocuser.h>
 
 #include "pimoco_stepper.h"
+
+// Unused dummies for Indi functions to avoid linker errors
+//
+extern "C" {
+
+void ISGetProperties(const char *dev) {}
+
+void ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n) {}
+
+void ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n) {}
+
+void ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n) {}
+
+void ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n) {}
+
+void ISSnoopDevice(XMLEle *root) {}
+
+} // extern "C"
+
 
 void panicf(const char *fmt, ...) {
 	va_list argp;
@@ -38,16 +58,17 @@ void getAndPrintState(Stepper *stepper) {
 		panicf("Error getting position and speed\n");
 
 	printf("Current position is %'+d; speed is %'+d and status is ", pos, speed);
-	TMC5160::printStatus(stdout, stepper->getStatus());
-	puts("");
+	const int bufsize=1023;
+	char buffer[bufsize+1]={0};
+	TMC5160::printStatus(buffer, bufsize, stepper->getStatus());
+	puts(buffer);
 }
 
 int main(int argc, char ** argv) {
 	puts("Starting up...");
 
 	setlocale(LC_ALL, ""); // for thousands separator
-	Stepper stepper;
-	stepper.setDebugLevel(Stepper::TMC_DEBUG_ACTIONS);
+	Stepper stepper("Default stepper");
 
 	if(!stepper.open(Stepper::defaultSPIDevice))
 		panicf("Error opening device %s\n", Stepper::defaultSPIDevice);

@@ -25,6 +25,7 @@
 #include <linux/spi/spidev.h>
 #include <cstdio>
 #include <sys/time.h>  // for gettimeofday() etc.
+#include <libindi/indilogger.h> // for LOG_..., LOGF_... macros
 
 #include "pimoco_tmc5160.h"
 
@@ -171,7 +172,7 @@ const char *TMC5160::statusFlagNames[]={
 		"STOP_R",            // Bit 7
 };
 
-TMC5160::TMC5160() : SPI(), deviceStatus((enum TMCStatusFlags) 0) {
+TMC5160::TMC5160(const char *theIndiDeviceName) : SPI(theIndiDeviceName), deviceStatus((enum TMCStatusFlags) 0) {
     for(int i=0; i<(int) TMCR_NUM_REGISTERS; i++)
     	cachedRegisterValues[i]=0;
 }
@@ -194,7 +195,7 @@ bool TMC5160::setRegisterBits(uint8_t address, uint32_t value, uint32_t firstBit
 	uint32_t mask=(uint32_t) ( (((uint64_t)1)<<numBits)-1 ) << firstBit;
 	int tmp2=(tmp & ~mask) | ((value<<firstBit) & mask);
 	if(debugLevel>=TMC_DEBUG_REGISTERS)
-        printf("    old %08x value %08x firstBit %d numBits %d mask %08x new %08x\n", tmp, value, firstBit, numBits, mask, tmp2);
+		LOGF_DEBUG("    old %08x value %08x firstBit %d numBits %d mask %08x new %08x", tmp, value, firstBit, numBits, mask, tmp2);
 	return setRegister(address, tmp2);
 }
 
@@ -203,13 +204,19 @@ bool TMC5160::getRegister(uint8_t address, uint32_t *result) {
 	// use driver-side cache for write-only registers, fail for undefined registers
 	if(!canReadRegister(address)) {
 		if(!canWriteRegister(address)) {
-			if(debugLevel>=TMC_DEBUG_ERRORS)
-				printRegister(debugFile, address, 0, deviceStatus, "get", "error register is undefined");
+			const int bufsize=1023;
+			char buffer[bufsize+1]={0};
+			printRegister(buffer, bufsize, address, 0, deviceStatus, "get", "error register is undefined");
+			LOG_ERROR(buffer);
 			return false;
 		}   
 		*result=cachedRegisterValues[address & (TMCR_NUM_REGISTERS-1)];
-		if(debugLevel>=TMC_DEBUG_REGISTERS)
-			printRegister(debugFile, address, *result, deviceStatus, "get", "cached");
+		if(debugLevel>=TMC_DEBUG_REGISTERS) {
+			const int bufsize=1023;
+			char buffer[bufsize+1]={0};
+			printRegister(buffer, bufsize, address, *result, deviceStatus, "get", "cached");
+			LOG_DEBUG(buffer);
+		}
 		return true;
 	}
 
@@ -220,8 +227,10 @@ bool TMC5160::getRegister(uint8_t address, uint32_t *result) {
 	// As SPI is not performance critical for our application, we simply send read requests twice. 
 	for(int i=0; i<2; i++)
 		if(!sendReceive(tx,rx,5)) {
-			if(debugLevel>=TMC_DEBUG_ERRORS)
-				printRegister(debugFile, address, *result, rx[0], "get", "error");
+			const int bufsize=1023;
+			char buffer[bufsize+1]={0};
+			printRegister(buffer, bufsize, address, *result, rx[0], "get", "error");
+			LOG_ERROR(buffer);
 			return false;
 		}
 
@@ -229,8 +238,12 @@ bool TMC5160::getRegister(uint8_t address, uint32_t *result) {
 
 	*result=(((uint32_t) rx[1])<<24) | (((uint32_t) rx[2])<<16) | 
 	        (((uint32_t) rx[3])<<8)  |  ((uint32_t) rx[4]); 
-	if(debugLevel>=TMC_DEBUG_REGISTERS)
-		printRegister(debugFile, address, *result, rx[0], "get", NULL);
+	if(debugLevel>=TMC_DEBUG_REGISTERS) {
+		const int bufsize=1023;
+		char buffer[bufsize+1]={0};
+		printRegister(buffer, bufsize, address, *result, rx[0], "get", NULL);
+		LOG_DEBUG(buffer);
+	}
 
 	return true;
 }
@@ -238,8 +251,10 @@ bool TMC5160::getRegister(uint8_t address, uint32_t *result) {
 
 bool TMC5160::setRegister(uint8_t address, uint32_t value) {
 	if(!canWriteRegister(address)) {
-		if(debugLevel>=TMC_DEBUG_ERRORS)
-			printRegister(debugFile, address, value, 0, "SET", "error register not writeable");
+		const int bufsize=1023;
+		char buffer[bufsize+1]={0};
+		printRegister(buffer, bufsize, address, value, 0, "SET", "error register not writeable");
+		LOG_ERROR(buffer);
 		return false;
 	}
 
@@ -248,8 +263,12 @@ bool TMC5160::setRegister(uint8_t address, uint32_t value) {
 		           (uint8_t) ((value>>8)&0x00ff),  (uint8_t) ((value>>0)&0x00ff)   };
 	uint8_t rx[5];
 	if(!sendReceive(tx,rx,5)) {
-		if(debugLevel>=TMC_DEBUG_REGISTERS)
-			printRegister(debugFile, address, value, rx[0], "SET", "error");
+		if(debugLevel>=TMC_DEBUG_REGISTERS) {
+			const int bufsize=1023;
+			char buffer[bufsize+1]={0};
+			printRegister(buffer, bufsize, address, value, rx[0], "SET", "error");
+			LOG_DEBUG(buffer);
+		}
 		return false;
 	}
 
@@ -258,79 +277,143 @@ bool TMC5160::setRegister(uint8_t address, uint32_t value) {
 	// Returned data must be identical to the originally set data 
 	uint8_t tx2[5]={0,0,0,0,0};
 	if(!sendReceive(tx2,rx,5) || rx[1]!=tx[1] || rx[2]!=tx[2] || rx[3]!=tx[3] || rx[4]!=tx[4]) {
-		if(debugLevel>=TMC_DEBUG_REGISTERS)
-			printRegister(debugFile, address, value, rx[0], "get", "error");
+		if(debugLevel>=TMC_DEBUG_REGISTERS) {
+			const int bufsize=1023;
+			char buffer[bufsize+1]={0};
+			printRegister(buffer, bufsize, address, value, rx[0], "get", "error");
+			LOG_DEBUG(buffer);
+		}
 		return false;
 	}
 
 	deviceStatus=(enum TMCStatusFlags) rx[0];
 	cachedRegisterValues[address & (TMCR_NUM_REGISTERS-1)]=value;
 
-	if(debugLevel>=TMC_DEBUG_REGISTERS)
-		printRegister(debugFile, address, value, rx[0], "SET", NULL);
+	if(debugLevel>=TMC_DEBUG_REGISTERS) {
+		const int bufsize=1023;
+		char buffer[bufsize+1]={0};
+		printRegister(buffer, bufsize, address, value, rx[0], "SET", NULL);
+		LOG_DEBUG(buffer);
+	}
 	return true;
 }
 
 
 bool TMC5160::sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t len) {
+	const int bufsize=1023;
+	char buffer[bufsize+1]={0};
+	int bufpos=0;
+	int remaining=bufsize-bufpos;
+
 	if(debugLevel>=TMC_DEBUG_PACKETS) {
-		printPacket(debugFile, tx, len, true, "TX", NULL);
-		fprintf(debugFile, "  ");
+		int numPrinted=printPacket(buffer + bufpos, remaining, tx, len, true, "TX", NULL);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+		numPrinted=snprintf(buffer + bufpos, remaining, "  ");
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
 	}
 
 	bool res=SPI::sendReceive(tx, rx, len);
 
 	if(debugLevel>=TMC_DEBUG_PACKETS) {
-		printPacket(debugFile, rx, len, false, "RX", NULL);
-		fprintf(debugFile, "   Return %s\n", res?"true":"false");
+		int numPrinted=printPacket(buffer + bufpos, remaining, rx, len, false, "RX", NULL);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+		numPrinted=snprintf(buffer + bufpos, remaining, "   Return %s", res?"true":"false");
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+		LOG_DEBUG(buffer);
 	}
 
 	return res;
 }
 
 
-void TMC5160::printRegister(FILE *f, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix) {
+int TMC5160::printRegister(char *buffer, int bufsize, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix) {
+	int bufpos=0;
+	int remaining=bufsize-bufpos;
+
 	const char *regName=getRegisterName(address);
-	if(prefix!=NULL)
-		fprintf(f, "%s ", prefix);
-	fprintf(f,"'%-14s'@0x%04x = %'+14d (0x%08x) ", regName, address, value, value);
-	printStatus(f, (enum TMCStatusFlags) status);
-	if(suffix!=NULL)
-		fprintf(f, " %s", suffix);
-	fprintf(f,"\n");
+	if(prefix!=NULL) {
+		int numPrinted=snprintf(buffer + bufpos, remaining, "%s ", prefix);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+	}
+	int numPrinted=snprintf(buffer + bufpos, remaining, "'%-14s'@0x%04x = %'+14d (0x%08x) ", regName, address, value, value);
+	bufpos+=numPrinted;
+	remaining-=numPrinted;
+
+	numPrinted=printStatus(buffer + bufpos, remaining, (enum TMCStatusFlags) status);
+	bufpos+=numPrinted;
+	remaining-=numPrinted;
+
+	if(suffix!=NULL) {
+		numPrinted=snprintf(buffer + bufpos, remaining, " %s", suffix);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+	}
+	return bufpos;
 }
 
 
-bool TMC5160::printPacket(FILE *f, const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix) {
+int TMC5160::printPacket(char *buffer, int bufsize, const uint8_t *data, uint32_t numBytes, bool isTX, const char *prefix, const char *suffix) {
+	int bufpos=0;
+	int remaining=bufsize-bufpos;
+
 	if(data==NULL || numBytes==0)
 		return false;
-	if(prefix!=NULL)
-		fprintf(f, "%s ", prefix);
+	if(prefix!=NULL) {
+		int numPrinted=snprintf(buffer + bufpos, remaining, "%s ", prefix);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+	}
 
 	if(isTX) {
 		const char *opName=data[0]<0x0080 ? "get" : "SET";
 		const char *regName=getRegisterName(data[0]);
-		fprintf(f, "%s '%-14s'", opName, regName);
+		int numPrinted=snprintf(buffer + bufpos, remaining, "%s '%-14s'", opName, regName);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
 	} else {
-		printStatus(f, (enum TMCStatusFlags) data[0]);
+		int numPrinted=printStatus(buffer + bufpos, remaining, (enum TMCStatusFlags) data[0]);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
 	}
 
-	for(uint32_t i=0; i<numBytes; i++)
-		fprintf(f, " %02X",data[i]);
+	for(uint32_t i=0; i<numBytes; i++) {
+		int numPrinted=snprintf(buffer + bufpos, remaining, " %02X",data[i]);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+	}
 
-	if(suffix!=NULL)
-		fprintf(f, " %s", suffix);
-	return true;
+	if(suffix!=NULL) {
+		int numPrinted=snprintf(buffer + bufpos, remaining, " %s", suffix);
+		bufpos+=numPrinted;
+		remaining-=numPrinted;
+	}
+
+	return bufpos;
 }
 
 
-void TMC5160::printStatus(FILE *f, enum TMCStatusFlags status) {
+int TMC5160::printStatus(char *buffer, int bufsize, enum TMCStatusFlags status) {
+	int bufpos=0;
+	int remaining=bufsize-bufpos;
+
 	const char *separator="";
-	fprintf(f, "[");
+	int numPrinted=snprintf(buffer+bufpos, remaining, "[");
+	bufpos+=numPrinted;
+	remaining-=numPrinted;
 	for(uint32_t i=0; i<8; i++)
 		if( ((uint8_t)status) & (1u<<i) ) {
-			fprintf(f, "%s%s", separator, statusFlagNames[i]);
+			numPrinted=snprintf(buffer + bufpos, remaining, "%s%s", separator, statusFlagNames[i]);
+			bufpos+=numPrinted;
+			remaining-=numPrinted;
 			separator=" ";
 		}
-	fprintf(f, "]");	
+	numPrinted=snprintf(buffer + bufpos, remaining, "]");	
+	bufpos+=numPrinted;
+	remaining-=numPrinted;
+	return bufpos;
 }

@@ -24,6 +24,7 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <cstdio>
+#include <libindi/indilogger.h> // for LOG_..., LOGF_... macros
 
 #include "pimoco_spi.h"
 
@@ -38,8 +39,8 @@ bool SPI::open(const char *deviceName) {
 	if(fd>=0)
 		close();
 
-	if(debugLevel>=TMC_DEBUG_ACTIONS) 
-		fprintf(debugFile, "Opening device %s\n", deviceName!=NULL ? deviceName : "NULL");
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Opening device %s", deviceName!=NULL ? deviceName : "NULL");
 
 	fd=::open(deviceName, O_RDWR);
 	if(fd<0)
@@ -60,8 +61,8 @@ bool SPI::open(const char *deviceName) {
 
 bool SPI::close() {
 	if(fd>=0) {
-		if(debugLevel>=TMC_DEBUG_ACTIONS) 
-			fprintf(debugFile, "Shutting down existing device with file descriptor %d\n", fd);
+		if(debugLevel>=TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Shutting down existing device with file descriptor %d", fd);
 		::close(fd);
 		fd=-1;
 	}

@@ -26,7 +26,7 @@
 class Stepper : public TMC5160 {
 public:
 	// Creates a TMC5160 stepper connected via SPI
-	Stepper();
+	Stepper(const char *theIndiDeviceName);
 
 	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
 	~Stepper();

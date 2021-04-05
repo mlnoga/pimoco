@@ -2,7 +2,7 @@ TARGET_TEST=test
 SRCS_TEST=main.cpp  pimoco_spi.cpp  pimoco_stepper.cpp  pimoco_tmc5160.cpp
 OBJS_TEST=$(patsubst %.cpp,%.o,$(SRCS_TEST))
 DEPS_TEST=$(patsubst %.cpp,%.d,$(SRCS_TEST))
-LFLAGS_TEST=
+LFLAGS_TEST=-lindidriver
 
 TARGET_FOCUSER=indi_pimoco_focuser
 SRCS_FOCUSER=pimoco_focuser.cpp  pimoco_spi.cpp  pimoco_stepper.cpp  pimoco_tmc5160.cpp

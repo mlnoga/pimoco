@@ -62,7 +62,7 @@ void ISSnoopDevice(XMLEle *root) {
 // Public class members
 //
 
-PimocoFocuser::PimocoFocuser() : spiDeviceFilename("/dev/spidev1.0") {
+PimocoFocuser::PimocoFocuser() : stepper(getDeviceName()), spiDeviceFilename("/dev/spidev1.0") {
 	setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
     FI::SetCapability(FOCUSER_CAN_ABS_MOVE | FOCUSER_CAN_REL_MOVE | FOCUSER_CAN_ABORT | 
     	              FOCUSER_CAN_REVERSE  | FOCUSER_CAN_SYNC     ); // | FOCUSER_HAS_VARIABLE_SPEED);	
@@ -249,6 +249,7 @@ void PimocoFocuser::TimerHit() {
 //
 
 bool PimocoFocuser::Connect() {
+	LOGF_INFO("Attempting connection on %s", spiDeviceFilename);
 	if(!stepper.open(spiDeviceFilename)) {
 		LOGF_WARN("Connection on %s failed", spiDeviceFilename);
 		return false;
