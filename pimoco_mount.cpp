@@ -133,7 +133,16 @@ bool PimocoMount::updateProperties() {
 }
 
 void PimocoMount::ISGetProperties(const char *dev) {
-	return INDI::Telescope::ISGetProperties(dev);
+	INDI::Telescope::ISGetProperties(dev);
+
+	// load from configuration on init
+	loadConfig(true, HAMotorNP.name);
+	loadConfig(true, HAMSwitchSP.name);
+	loadConfig(true, HARampNP.name);
+
+	loadConfig(true, DecMotorNP.name);
+	loadConfig(true, DecMSwitchSP.name);
+	loadConfig(true, DecRampNP.name);
 }
 
 bool PimocoMount::ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n) {
@@ -193,6 +202,20 @@ bool PimocoMount::ISNewText(const char *dev, const char *name, char *texts[], ch
 
 bool PimocoMount::ISSnoopDevice(XMLEle *root) {
 	return INDI::Telescope::ISSnoopDevice(root);
+}
+
+bool PimocoMount::saveConfigItems(FILE *fp){
+    INDI::Telescope::saveConfigItems(fp);
+
+    IUSaveConfigNumber(fp, &HAMotorNP);
+    IUSaveConfigSwitch(fp, &HAMSwitchSP);
+    IUSaveConfigNumber(fp, &HARampNP);
+
+    IUSaveConfigNumber(fp, &DecMotorNP);
+    IUSaveConfigSwitch(fp, &DecMSwitchSP);
+    IUSaveConfigNumber(fp, &DecRampNP);
+
+    return true;
 }
 
 void PimocoMount::TimerHit() {
@@ -290,3 +313,4 @@ bool PimocoMount::Disconnect() {
 bool PimocoMount::Handshake() {
 	return true;
 }
+

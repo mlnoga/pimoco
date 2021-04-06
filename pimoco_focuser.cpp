@@ -110,7 +110,12 @@ bool PimocoFocuser::updateProperties() {
 }
 
 void PimocoFocuser::ISGetProperties(const char *dev) {
-	return INDI::Focuser::ISGetProperties(dev);
+	INDI::Focuser::ISGetProperties(dev);
+
+	// load from configuration on init
+	loadConfig(true, MotorNP.name);
+	loadConfig(true, MSwitchSP.name);
+	loadConfig(true, RampNP.name);
 }
 
 bool PimocoFocuser::ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n) {
@@ -164,6 +169,16 @@ bool PimocoFocuser::ISNewText(const char *dev, const char *name, char *texts[], 
 
 bool PimocoFocuser::ISSnoopDevice(XMLEle *root) {
 	return INDI::Focuser::ISSnoopDevice(root);
+}
+
+bool PimocoFocuser::saveConfigItems(FILE *fp){
+    INDI::Focuser::saveConfigItems(fp);
+
+    IUSaveConfigNumber(fp, &MotorNP);
+    IUSaveConfigSwitch(fp, &MSwitchSP);
+    IUSaveConfigNumber(fp, &RampNP);
+
+    return true;
 }
 
 void PimocoFocuser::TimerHit() {
