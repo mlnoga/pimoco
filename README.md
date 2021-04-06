@@ -21,6 +21,7 @@ This is
 * [Raspberry Pi GPIO](https://www.raspberrypi.org/documentation/hardware/raspberrypi/gpio/README.md)
 * [Raspberry Pi SPI](https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md)
 * [Indi Github](https://github.com/indilib/indi)
+* [ibnova Sourceforge](http://libnova.sourceforge.net/)
 
 
 ## Digikey parts list
@@ -90,9 +91,11 @@ gpio -1 mode 7 alt0
 gpio -1 clock 7 9600000
 ```
 
-Install the Indi driver development environment with `sudo apt-get install libindi-dev`.
+Install the Indi driver development environment and Nova library with `sudo apt-get install libindi-dev libnova-dev`.
 
-Build with `make`
+Build with `make`.
 
-Run standalone test with `./test`, or Indi testbed with `indiserver -v ./indi_pimoco_focuser`.
+Run standalone test with `make test` or `./test_stepper`.
+
+Run an Indi server testbed with `make serve` or `indiserver -v ./indi_pimoco_focuser ./indi_pimoco_mount`.
 
