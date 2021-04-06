@@ -67,8 +67,11 @@ protected:
     // UI controls
     //
 
-    INumber CurrentMaN[2]={};
-    INumberVectorProperty CurrentMaNP;
+    INumber MotorN[4]={};
+    INumberVectorProperty MotorNP;
+
+    ISwitch MSwitchS[1]={};
+    ISwitchVectorProperty MSwitchSP;
 
     INumber RampN[9]={};
     INumberVectorProperty RampNP;

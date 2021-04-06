@@ -64,7 +64,10 @@ void ISSnoopDevice(XMLEle *root) {
 PimocoFocuser::PimocoFocuser() : stepper(getDeviceName()), spiDeviceFilename("/dev/spidev1.0") {
 	setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
     FI::SetCapability(FOCUSER_CAN_ABS_MOVE | FOCUSER_CAN_REL_MOVE | FOCUSER_CAN_ABORT | 
-    	              FOCUSER_CAN_REVERSE  | FOCUSER_CAN_SYNC     ); // | FOCUSER_HAS_VARIABLE_SPEED);	
+    	              // FOCUSER_CAN_REVERSE  |        // superseded by stepper class controls which serve both mount and focuser 
+    	              FOCUSER_CAN_SYNC |
+    	              // | FOCUSER_HAS_VARIABLE_SPEED  // superseded by stepper class controls which serve both mount and focuser      
+    	              0);	
 	setSupportedConnections(CONNECTION_NONE);
 }
 
@@ -83,8 +86,8 @@ bool PimocoFocuser::initProperties() {
 	FocusMaxPosN[0].max=2000000000;
 	IUUpdateMinMax(&FocusMaxPosNP);
 
-	stepper.initProperties(CurrentMaN, &CurrentMaNP, RampN, &RampNP, 
-						   "CURRENT", "Current", "RAMP", "Ramp", FOCUS_TAB);
+	stepper.initProperties(MotorN, &MotorNP, MSwitchS, &MSwitchSP, RampN, &RampNP, 
+						   "MOTOR", "Motor", "SWITCHES", "Switches", "RAMP", "Ramp", FOCUS_TAB);
 
     addDebugControl();
     return true;
@@ -94,7 +97,7 @@ bool PimocoFocuser::updateProperties() {
 	if(!INDI::Focuser::updateProperties())
 		return false;
 
-	if(!stepper.updateProperties(this, CurrentMaN, &CurrentMaNP, RampN, &RampNP))
+	if(!stepper.updateProperties(this, MotorN, &MotorNP, MSwitchS, &MSwitchSP, RampN, &RampNP))
 		return false;
 
 	if(isConnected()) {
@@ -132,7 +135,7 @@ bool PimocoFocuser::ISNewNumber(const char *dev, const char *name, double values
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Focuser::ISNewNumber(dev, name, values, names, n);
 
-	int res=stepper.ISNewNumber(&CurrentMaNP, &RampNP, name, values, names, n);
+	int res=stepper.ISNewNumber(&MotorNP, &MotorNP, name, values, names, n);
 	if(res>=0)
 		return res>0;
     
@@ -143,7 +146,9 @@ bool PimocoFocuser::ISNewSwitch(const char *dev, const char *name, ISState *stat
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Focuser::ISNewSwitch(dev, name, states, names, n);
 
-    // if(strcmp(name, ...)) { } else
+	int res=stepper.ISNewSwitch(&MSwitchSP, name, states, names, n);
+	if(res>=0)
+		return res>0;
 
 	return INDI::Focuser::ISNewSwitch(dev, name, states, names, n);
 }
