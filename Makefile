@@ -14,7 +14,7 @@ TARGET_MOUNT=indi_pimoco_mount
 SRCS_MOUNT=pimoco_mount.cpp  pimoco_spi.cpp  pimoco_stepper.cpp  pimoco_tmc5160.cpp
 OBJS_MOUNT=$(patsubst %.cpp,%.o,$(SRCS_MOUNT))
 DEPS_MOUNT=$(patsubst %.cpp,%.d,$(SRCS_MOUNT))
-LFLAGS_MOUNT=-lindidriver
+LFLAGS_MOUNT=-lindidriver -lnova
 
 
 CFLAGS=-Wall
