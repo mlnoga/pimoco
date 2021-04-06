@@ -24,7 +24,7 @@
 #include <linux/types.h>
 #include <linux/spi/spidev.h>
 #include <cstdio>
-#include <math.h> // for round()
+#include <math.h> // for round(), M_PI
 #include <sys/time.h>  // for gettimeofday() etc.
 #include <libindi/indilogger.h> // for LOG_..., LOGF_... macros
 
@@ -36,10 +36,13 @@ const uint32_t Stepper::defaultHardwareMaxCurrent_mA=3100; // default for TMC516
 const int32_t  Stepper::defaultMinPosition=-1000ul*1000ul*256ul;
 const int32_t  Stepper::defaultMaxPosition= 1000ul*1000ul*256ul;
 const int32_t  Stepper::defaultMaxGoToSpeed=100000;
+const double   Stepper::defaultStepsPerRev =400;
+const double   Stepper::defaultGearRatio   =3*144;
 
 
 Stepper::Stepper(const char *theIndiDeviceName) : TMC5160(theIndiDeviceName), minPosition(defaultMinPosition), maxPosition(defaultMaxPosition),
-				     maxGoToSpeed(defaultMaxGoToSpeed), hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA) {
+				     maxGoToSpeed(defaultMaxGoToSpeed), hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA),
+				     stepsPerRev(defaultStepsPerRev), gearRatio(defaultGearRatio) {
 }
 
 
@@ -220,6 +223,16 @@ bool Stepper::stop() {
 		return false;
 	return setTargetPosition(xactual);
 }
+
+
+bool Stepper::getPositionInUnits(double *result, double full) {
+	int32_t pos;
+	if(!getPosition(&pos))
+		return false;
+	*result=(full * (double) pos) / (microsteps * stepsPerRev * gearRatio);
+	return true;
+}
+
 
 bool Stepper::syncPosition(int32_t value) {
 	if(value<minPosition || value>maxPosition) {
@@ -434,18 +447,25 @@ bool Stepper::setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput) {
 }
 
 
-void Stepper::initProperties(INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+void Stepper::initProperties(INumber *MotorN, INumberVectorProperty *MotorNP, 
+						     ISwitch *MSwitchS, ISwitchVectorProperty *MSwitchSP, 
 	                         INumber *RampN, INumberVectorProperty *RampNP, 
-	                         const char *currentVarName, const char *currentUILabel,
+	                         const char *motorVarName, const char *motorUILabel,
+	                         const char *mSwitchVarName, const char *mSwitchUILabel,
 	                         const char *rampVarName, const char *rampUILabel, 
 	                         const char *tabName) {
 
 	uint32_t currentHwMaxMa;
 	getHardwareMaxCurrent(&currentHwMaxMa);
 
-	IUFillNumber(&CurrentMaN[0], "HOLD", "Hold [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
-	IUFillNumber(&CurrentMaN[1], "RUN",  "Run [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
-	IUFillNumberVector(CurrentMaNP, CurrentMaN, 2, getDeviceName(), currentVarName, currentUILabel, tabName, IP_RW, 0, IPS_IDLE);
+	IUFillNumber(&MotorN[0], "STEPS", "Steps/rev [1]",     "%.0f", 0, 1000, 10, 0);
+	IUFillNumber(&MotorN[1], "GEAR",  "Gear ratio [1:n]",  "%.0f", 0, 1000, 10, 0);
+	IUFillNumber(&MotorN[2], "HOLD",  "Hold current [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
+	IUFillNumber(&MotorN[3], "RUN",   "Run current [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
+	IUFillNumberVector(MotorNP, MotorN, 4, getDeviceName(), motorVarName, motorUILabel, tabName, IP_RW, 0, IPS_IDLE);
+
+	IUFillSwitch(&MSwitchS[0], "INVERT", "Invert axis", ISS_OFF);
+	IUFillSwitchVector(MSwitchSP, MSwitchS, 1, getDeviceName(), mSwitchVarName, mSwitchUILabel, tabName, IP_RW, ISR_NOFMANY, 0, IPS_IDLE);
 
 	IUFillNumber(&RampN[0], "VSTART",    "VStart [usteps/t]",     "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
 	IUFillNumber(&RampN[1], "A1",        "A1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
@@ -461,22 +481,38 @@ void Stepper::initProperties(INumber *CurrentMaN, INumberVectorProperty *Current
 
 
 bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
-							   INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+							   INumber *MotorN, INumberVectorProperty *MotorNP, 
+						       ISwitch *MSwitchS, ISwitchVectorProperty *MSwitchSP, 
 	                           INumber *RampN, INumberVectorProperty *RampNP) {
 	if(iDevice->isConnected()) {
-		// Current settings
-		iDevice->defineProperty(CurrentMaNP);
+		// Motor settings
+		iDevice->defineProperty(MotorNP);
 		uint32_t currentHoldMa, currentRunMa;
 		if(!getHoldCurrent(&currentHoldMa) || !getRunCurrent(&currentRunMa)) {
-		    CurrentMaNP->s = IPS_ALERT;
-		    IDSetNumber(CurrentMaNP, NULL);				
+		    MotorNP->s = IPS_ALERT;
+		    IDSetNumber(MotorNP, NULL);				
 			return false;
 		} else {
-		    CurrentMaN[0].value = currentHoldMa;
-		    CurrentMaN[1].value = currentRunMa;
-		    CurrentMaNP->s = IPS_OK;
-		    IDSetNumber(CurrentMaNP, NULL);
+		    MotorN[0].value = stepsPerRev;
+		    MotorN[1].value = gearRatio;
+		    MotorN[2].value = currentHoldMa;
+		    MotorN[3].value = currentRunMa;
+		    MotorNP->s = IPS_OK;
+		    IDSetNumber(MotorNP, NULL);
 	    }				
+
+	    // Motor switches
+	    iDevice->defineProperty(MSwitchSP);
+	    uint32_t invert;
+	    if(!getInvertMotor(&invert)) {
+			MSwitchSP->s=IPS_ALERT;
+			IDSetSwitch(MSwitchSP, NULL);
+			return false;	    	
+	    } else {
+	    	MSwitchS[0].s=(invert>0) ? ISS_ON : ISS_OFF;
+	    	MSwitchSP->s=IPS_OK;
+	    	IDSetSwitch(MSwitchSP, NULL);
+	    }
 
 		// Ramp settings
 	    iDevice->defineProperty(RampNP);
@@ -500,19 +536,21 @@ bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
 	    	IDSetNumber(RampNP, NULL);
 	    }
 	} else {
-		iDevice->deleteProperty(CurrentMaNP->name);
+		iDevice->deleteProperty(MotorNP->name);
 		iDevice->deleteProperty(RampNP->name);
 	}
 	return true;
 }
 
 
-int Stepper::ISNewNumber(INumberVectorProperty *CurrentMaNP, INumberVectorProperty *RampNP,
+int Stepper::ISNewNumber(INumberVectorProperty *MotorNP, INumberVectorProperty *RampNP,
                          const char *name, double values[], char *names[], int n) {
-    if(!strcmp(name, CurrentMaNP->name)) { 
-        bool res=setHoldCurrent((uint32_t) round(values[0])) && 
-                 setRunCurrent ((uint32_t) round(values[1]))    ;
-        return ISUpdateNumber(CurrentMaNP, values, names, n, res) ? 1 : 0;
+    if(!strcmp(name, MotorNP->name)) { 
+        bool res=setStepsPerRev(values[0]) &&
+        		 setGearRatio(values[1]) &&
+        	     setHoldCurrent((uint32_t) round(values[2])) && 
+                 setRunCurrent ((uint32_t) round(values[3]))    ;
+        return ISUpdateNumber(MotorNP, values, names, n, res) ? 1 : 0;
     } else if(!strcmp(name, RampNP->name)) {
     	bool res=setVStart((uint32_t) round(values[0])) &&
     			 setA1((uint32_t) round(values[1])) &&
@@ -529,11 +567,23 @@ int Stepper::ISNewNumber(INumberVectorProperty *CurrentMaNP, INumberVectorProper
     return -1;
 }
 
-bool Stepper::ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res) 
-{
+bool Stepper::ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res) {
 	if(res)
 		IUUpdateNumber(NP, values, names, n);               
 	NP->s=res ? IPS_OK : IPS_ALERT;
 	IDSetNumber(NP, NULL);
 	return res;
+}
+
+int Stepper::ISNewSwitch(ISwitchVectorProperty *MSwitchSP, 
+                         const char *name, ISState *states, char *names[], int n) {
+    if(!strcmp(name, MSwitchSP->name)) { 
+        bool res=setInvertMotor(states[0]==ISS_ON ? 1 : 0);
+		if(res)
+			IUUpdateSwitch(MSwitchSP, states, names, n);
+		MSwitchSP->s=res ? IPS_OK : IPS_ALERT;
+		IDSetSwitch(MSwitchSP, NULL);
+		return res ? 1 : 0;
+    }    
+    return -1;
 }

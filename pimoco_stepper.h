@@ -23,6 +23,7 @@
 
 #include "pimoco_tmc5160.h"
 #include <libindi/indidevapi.h>
+#include <math.h> // for M_PI
 
 // Higher-level stepper functions, building on the underlying implementation of TMC5160 stepper registers
 class Stepper : public TMC5160 {
@@ -48,6 +49,18 @@ public:
 
 	// Returns the current position in the variable pointed to by result. Returns true on success, else false	
 	bool getPosition(int32_t *result) { return getRegister(TMCR_XACTUAL, (uint32_t*) result); }
+
+	// Gets current position in radians, based on usteps, steps and gear ratio
+	bool getPositionRadians(double *result) { return getPositionInUnits(result, 2.0*M_PI); }
+
+	// Gets current position in degrees, based on usteps, steps and gear ratio
+	bool getPositionDegrees(double *result) { return getPositionInUnits(result, 360.0); }
+
+	// Gets current position in hours, based on usteps, steps and gear ratio
+	bool getPositionHours(double *result) { return getPositionInUnits(result, 24.0); }
+
+	// Gets current position in given units for full circle
+	bool getPositionInUnits(double *result, double full);
 
 	// Syncs the current position on device to the given value. Temporarily enters holding mode to avoid moving the axis, 
 	// then restores previous ramping mode afterwards. Returns true on success, else false	
@@ -101,29 +114,51 @@ public:
 	// Sets motor hold current in mA. Must be called after setHardwareMaxCurrent(). Returns true on success, else false
 	bool setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput=false);
 
+	// Gets number of microsteps per step. Always succeeds
+	bool getMicrosteps(double *result) { *result=microsteps; return true; }
+
+	// Sets steps per revolution. Always succeeds
+	bool setStepsPerRev(double value) { stepsPerRev=value; return true; }
+
+	// Gets steps per revolution. Always succeeds
+	bool getStepsPerRev(double *result) { *result=stepsPerRev; return true; }
+
+	// Sets gear ratio. Motor must turn X times for one full turn of the controlled object. Always succeeds
+	bool setGearRatio(double value) { gearRatio=value; return true; }
+
+	// Gets gear ratio. Motor must turn X times for one full turn of the controlled object. Always succeeds
+	bool getGearRatio(double *result) { *result=gearRatio; return true; }
 
 	// Indi UI
 	//
 
 	// Initialize INDI UI properties
-	void initProperties(INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+	void initProperties(INumber *MotorN, INumberVectorProperty *MotorNP,
+						ISwitch *MSwitchS, ISwitchVectorProperty *MSwitchSP, 
 	                    INumber *RampN, INumberVectorProperty *RampNP, 
-                        const char *currentLabel, const char *currentName,
-                        const char *rampLabel, const char *rampName, 
+                        const char *motorVarName, const char *motorUILabel,
+                        const char *mSwitchVarName, const char *mSwitchUILabel,
+                        const char *rampVarName, const char *rampUILabel, 
 	                    const char *tabName);
 
 	// Update INDI UI properties based on connection status. Returns true on success, else false
 	bool updateProperties(INDI::DefaultDevice *iDevice,
-					      INumber *CurrentMaN, INumberVectorProperty *CurrentMaNP, 
+					      INumber *MotorN, INumberVectorProperty *MotorNP, 
+						  ISwitch *MSwitchS, ISwitchVectorProperty *MSwitchSP, 
 	                      INumber *RampN, INumberVectorProperty *RampNP);
 
-	// Update stepper based on new values coming from UI. 
+	// Update stepper setting number based on new values coming from UI. 
 	// Returns 1 if successful, 0 if unsuccessful, -1 if handler not applicable for this name
-	int ISNewNumber(INumberVectorProperty *CurrentMaNP, INumberVectorProperty *RampNP,
+	int ISNewNumber(INumberVectorProperty *MotorNP, INumberVectorProperty *RampNP,
                     const char *name, double values[], char *names[], int n);
 
     // Updates number vector property with the given values if res is true and display status IPS_OK, else display status IPS_ALERT. Returns res for convenience. 
     bool ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res);
+
+    // Update stepper setting switch based on new values coming from UI.
+	// Returns 1 if successful, 0 if unsuccessful, -1 if handler not applicable for this name
+	int ISNewSwitch(ISwitchVectorProperty *MSwitchSP, 
+                    const char *name, ISState *states, char *names[], int n);
 
 protected:
 	// Runs automatic chopper tuning procedure, as per TMC5160A datasheet section 7.1, p.57ff
@@ -141,6 +176,17 @@ protected:
 	// Maximal current supported by hardware based on the chosen sense resistor. See datasheet section 9, p.74
 	uint32_t hardwareMaxCurrent_mA;
 
+	// Microsteps per full motor step
+	const double   microsteps=256;
+
+	// Motor steps per full revolution of the motor shaft
+	double   stepsPerRev;
+
+	// Gear ratio 1:x between a motor shaft revolution and a revolution of the controlled object.
+	// Motor must turn X times for one full turn of the controlled object. 
+	double   gearRatio;
+
+
 protected:	
 	// Default maximal current supported by TMC5160-BOB. See datasheet section 9, p.74
 	static const uint32_t defaultHardwareMaxCurrent_mA;
@@ -153,6 +199,14 @@ protected:
 
 	// Default maximal go-to speed 
 	static const int32_t defaultMaxGoToSpeed;
-};
+
+	// Default motor steps per full revolution of the motor shaft
+	static const double   defaultStepsPerRev;
+
+	// Default gear ratio 1:x between a motor shaft revolution and a revolution of the controlled object.
+	// Motor must turn X times for one full turn of the controlled object. 
+	static const double   defaultGearRatio;
+
+ };
 
 #endif // PIMOCO_STEPPER_H
