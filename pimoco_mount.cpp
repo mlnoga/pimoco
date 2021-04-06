@@ -204,6 +204,9 @@ bool PimocoMount::ISSnoopDevice(XMLEle *root) {
 	return INDI::Telescope::ISSnoopDevice(root);
 }
 
+// Protected class members
+//
+
 bool PimocoMount::saveConfigItems(FILE *fp){
     INDI::Telescope::saveConfigItems(fp);
 
@@ -216,6 +219,41 @@ bool PimocoMount::saveConfigItems(FILE *fp){
     IUSaveConfigNumber(fp, &DecRampNP);
 
     return true;
+}
+
+bool PimocoMount::Connect() {
+	LOGF_INFO("Attempting connection to HA on %s", spiDeviceFilenameHA);
+	if(!stepperHA.open(spiDeviceFilenameHA)) {
+		LOGF_WARN("Connection to HA on %s failed", spiDeviceFilenameHA);
+		return false;
+	}
+	LOGF_INFO("Connection to HA on %s successful", spiDeviceFilenameHA);
+
+	LOGF_INFO("Attempting connection to Dec on %s", spiDeviceFilenameDec);
+	if(!stepperDec.open(spiDeviceFilenameDec)) {
+		LOGF_WARN("Connection to Dec on %s failed", spiDeviceFilenameDec);
+		return false;
+	}
+	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
+
+	uint32_t pp=getPollingPeriod();
+	if (pp > 0)
+		SetTimer(pp);
+
+	return true;
+}
+
+bool PimocoMount::Disconnect() {
+	if(!stepperHA.close() || !stepperDec.close()) {
+		LOG_WARN("Error closing connection");
+		return false;
+	}
+	LOG_INFO("Successfully closed connection");
+	return true;
+}
+
+bool PimocoMount::Handshake() {
+	return true;
 }
 
 void PimocoMount::TimerHit() {
@@ -276,41 +314,21 @@ bool PimocoMount::ReadScopeStatus() {
 	return true;
 }
 
-// Protected class members
-//
-
-bool PimocoMount::Connect() {
-	LOGF_INFO("Attempting connection to HA on %s", spiDeviceFilenameHA);
-	if(!stepperHA.open(spiDeviceFilenameHA)) {
-		LOGF_WARN("Connection to HA on %s failed", spiDeviceFilenameHA);
+bool PimocoMount::SetTrackEnabled(bool enabled) {
+	LOGF_INFO("%s tracking", enabled ? "Enabling" : "Disabling");
+	if(!stepperHA.setTargetVelocityArcsecPerSec(enabled ? 15.041067 : 0.0)) {
+		LOGF_ERROR("%s tracking", enabled ? "Enabling" : "Disabling");
 		return false;
 	}
-	LOGF_INFO("Connection to HA on %s successful", spiDeviceFilenameHA);
-
-	LOGF_INFO("Attempting connection to Dec on %s", spiDeviceFilenameDec);
-	if(!stepperDec.open(spiDeviceFilenameDec)) {
-		LOGF_WARN("Connection to Dec on %s failed", spiDeviceFilenameDec);
-		return false;
-	}
-	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
-
-	uint32_t pp=getPollingPeriod();
-	if (pp > 0)
-		SetTimer(pp);
-
 	return true;
 }
 
-bool PimocoMount::Disconnect() {
-	if(!stepperHA.close() || !stepperDec.close()) {
-		LOG_WARN("Error closing connection");
+bool PimocoMount::SetTrackRate(double raRate, double deRate) {
+	LOGF_INFO("Setting tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
+	if(!stepperHA.setTargetVelocityArcsecPerSec(raRate) ||
+	   !stepperHA.setTargetVelocityArcsecPerSec(raRate)    ) {
+		LOGF_ERROR("Error setting tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
 		return false;
 	}
-	LOG_INFO("Successfully closed connection");
 	return true;
 }
-
-bool PimocoMount::Handshake() {
-	return true;
-}
-

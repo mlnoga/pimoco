@@ -216,6 +216,30 @@ bool Stepper::setTargetSpeed(int32_t value) {
 	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
 }
 
+
+bool Stepper::setTargetVelocityArcsecPerSec(double arcsecPerSec) {
+	if(stepsPerRev==0 || gearRatio==0 || clockHz==0) {
+		LOGF_ERROR("Zero value detected: %d steps/rev %d gear ratio %d Hz clock", stepsPerRev, gearRatio, clockHz);
+		return false;
+	}
+
+	uint32_t ustepsPerRev=256*stepsPerRev*gearRatio;
+	double ustepsPerArcsec=((double) ustepsPerRev) * (1.0 / (360.0*60.0*60.0));
+
+	uint32_t stepperChipTimeScaler=(1ul<<24);
+	double stepperTimeUnit=((double)stepperChipTimeScaler)/((double)clockHz);
+
+	double ustepsPerT=arcsecPerSec * ustepsPerArcsec * stepperTimeUnit;
+	int32_t ustepsPerTRounded=round(ustepsPerT);
+
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting target velocity to %f arcsec/sec * %f usteps/arcsec * %f s/stepper_t = %f usteps/stepper_t, rounded to %d",
+			       arcsecPerSec, ustepsPerArcsec, stepperTimeUnit, ustepsPerT, ustepsPerTRounded);
+
+	return setTargetSpeed(ustepsPerTRounded);
+}
+
+
 // Stops all current movement. Returns true on success, else false
 bool Stepper::stop() {
 	uint32_t xactual;
@@ -539,6 +563,7 @@ bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
 	    }
 	} else {
 		iDevice->deleteProperty(MotorNP->name);
+		iDevice->deleteProperty(MSwitchSP->name);
 		iDevice->deleteProperty(RampNP->name);
 	}
 	return true;

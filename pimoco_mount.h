@@ -57,6 +57,8 @@ protected:
 
     virtual bool ReadScopeStatus() override;
 
+    virtual bool SetTrackEnabled(bool enabled) override;
+    virtual bool SetTrackRate(double raRate, double deRate) override;
 
 	Stepper stepperHA;
     Stepper stepperDec;

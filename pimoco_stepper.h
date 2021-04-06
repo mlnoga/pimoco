@@ -44,6 +44,9 @@ public:
 	// Sets the target speed to the given number of microsteps per second. Returns immediately. Returns true on success, else false
 	bool setTargetSpeed(int32_t value);
 
+	// Sets the target velocity in arcseconds per second of the controlled object. Returns immediately. Returns true on success, else false
+	bool setTargetVelocityArcsecPerSec(double arcsecPerSec);
+
 	// Stops all current movement. Returns true on success, else false
 	bool stop();
 
