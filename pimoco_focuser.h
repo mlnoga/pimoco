@@ -69,7 +69,7 @@ protected:
     // UI controls
     //
 
-    INumber MotorN[4]={};
+    INumber MotorN[5]={};
     INumberVectorProperty MotorNP;
 
     ISwitch MSwitchS[1]={};

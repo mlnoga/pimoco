@@ -462,7 +462,8 @@ void Stepper::initProperties(INumber *MotorN, INumberVectorProperty *MotorNP,
 	IUFillNumber(&MotorN[1], "GEAR",  "Gear ratio [1:n]",  "%.0f", 0, 1000, 10, 0);
 	IUFillNumber(&MotorN[2], "HOLD",  "Hold current [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
 	IUFillNumber(&MotorN[3], "RUN",   "Run current [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
-	IUFillNumberVector(MotorNP, MotorN, 4, getDeviceName(), motorVarName, motorUILabel, tabName, IP_RW, 0, IPS_IDLE);
+	IUFillNumber(&MotorN[4], "CLOCK", "Clock [Hz]",        "%.0f", 8000000, 16000000, 100000, 9600000);
+	IUFillNumberVector(MotorNP, MotorN, 5, getDeviceName(), motorVarName, motorUILabel, tabName, IP_RW, 0, IPS_IDLE);
 
 	IUFillSwitch(&MSwitchS[0], "INVERT", "Invert axis", ISS_OFF);
 	IUFillSwitchVector(MSwitchSP, MSwitchS, 1, getDeviceName(), mSwitchVarName, mSwitchUILabel, tabName, IP_RW, ISR_NOFMANY, 0, IPS_IDLE);
@@ -497,6 +498,7 @@ bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
 		    MotorN[1].value = gearRatio;
 		    MotorN[2].value = currentHoldMa;
 		    MotorN[3].value = currentRunMa;
+		    MotorN[4].value = clockHz;
 		    MotorNP->s = IPS_OK;
 		    IDSetNumber(MotorNP, NULL);
 	    }				
@@ -549,7 +551,8 @@ int Stepper::ISNewNumber(INumberVectorProperty *MotorNP, INumberVectorProperty *
         bool res=setStepsPerRev(values[0]) &&
         		 setGearRatio(values[1]) &&
         	     setHoldCurrent((uint32_t) round(values[2])) && 
-                 setRunCurrent ((uint32_t) round(values[3]))    ;
+                 setRunCurrent ((uint32_t) round(values[3])) &&
+                 setClockHz(values[4]) ;
         return ISUpdateNumber(MotorNP, values, names, n, res) ? 1 : 0;
     } else if(!strcmp(name, RampNP->name)) {
     	bool res=setVStart((uint32_t) round(values[0])) &&

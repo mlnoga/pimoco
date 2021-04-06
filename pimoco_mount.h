@@ -67,7 +67,7 @@ protected:
     // UI controls
     //
 
-    INumber HAMotorN[4]={};
+    INumber HAMotorN[5]={};
     INumberVectorProperty HAMotorNP;
 
     ISwitch HAMSwitchS[1]={};
@@ -76,7 +76,7 @@ protected:
     INumber HARampN[9]={};
     INumberVectorProperty HARampNP;
 
-    INumber DecMotorN[4]={};
+    INumber DecMotorN[5]={};
     INumberVectorProperty DecMotorNP;
 
     ISwitch DecMSwitchS[1]={};

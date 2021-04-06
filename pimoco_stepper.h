@@ -129,6 +129,13 @@ public:
 	// Gets gear ratio. Motor must turn X times for one full turn of the controlled object. Always succeeds
 	bool getGearRatio(double *result) { *result=gearRatio; return true; }
 
+	// Sets clock in Hz.  Does not change physical setting, used for physical position/speed/accel calculations only. Always succeeds
+	bool setClockHz(uint32_t value) { clockHz=value; return true; }
+
+	// Gets glock in Hz.  Does not change physical setting, used for physical position/speed/accel calculations only. Always succeeds
+	bool getClockHz(uint32_t *result) { *result=clockHz; return true; }
+
+
 	// Indi UI
 	//
 
@@ -185,6 +192,9 @@ protected:
 	// Gear ratio 1:x between a motor shaft revolution and a revolution of the controlled object.
 	// Motor must turn X times for one full turn of the controlled object. 
 	double   gearRatio;
+
+	// Stepper clock in Hz. Does not change physical setting, used for physical position/speed/accel calculations only.
+	uint32_t clockHz;
 
 
 protected:	
