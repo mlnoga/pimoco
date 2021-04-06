@@ -19,6 +19,9 @@
 
 #include "pimoco_mount.h"
 #include <libindi/indilogger.h>
+#include <libindi/indicom.h>  // for rangeHA etc.
+#include <libnova/julian_day.h>
+#include <libnova/sidereal_time.h>
 
 #define CDRIVER_VERSION_MAJOR	1
 #define CDRIVER_VERSION_MINOR	0
@@ -102,10 +105,10 @@ bool PimocoMount::initProperties() {
 	if(!INDI::Telescope::initProperties()) 
 		return false;
 
-	stepperHA .initProperties( HACurrentMaN, & HACurrentMaNP,  HARampN, & HARampNP,  
-							  "HA_CURRENT", "Current", "HA_RAMP", "Ramp", HA_TAB);
-	stepperDec.initProperties(DecCurrentMaN, &DecCurrentMaNP, DecRampN, &DecRampNP, 
-							  "DEC_CURRENT", "Current", "DEC_RAMP", "Ramp", DEC_TAB);
+	stepperHA .initProperties( HAMotorN, & HAMotorNP,  HAMSwitchS, & HAMSwitchSP, HARampN, & HARampNP,  
+							  "HA_MOTOR", "Motor", "HA_MSWITCH", "Switches", "HA_RAMP", "Ramp", HA_TAB);
+	stepperDec.initProperties(DecMotorN, &DecMotorNP, DecMSwitchS, &DecMSwitchSP, DecRampN, &DecRampNP, 
+							  "DEC_MOTOR", "Motor", "DEC_MSWITCH", "Switches", "DEC_RAMP", "Ramp", DEC_TAB);
 
     addDebugControl();
     return true;
@@ -115,9 +118,9 @@ bool PimocoMount::updateProperties() {
 	if(!INDI::Telescope::updateProperties())
 		return false;
 
-	if(!stepperHA .updateProperties(this,  HACurrentMaN, & HACurrentMaNP,  HARampN, & HARampNP))
+	if(!stepperHA .updateProperties(this,  HAMotorN, & HAMotorNP,  HAMSwitchS, & HAMSwitchSP,  HARampN, & HARampNP))
 		return false;
-	if(!stepperDec.updateProperties(this, DecCurrentMaN, &DecCurrentMaNP, DecRampN, &DecRampNP))
+	if(!stepperDec.updateProperties(this, DecMotorN, &DecMotorNP, DecMSwitchS, &DecMSwitchSP, DecRampN, &DecRampNP))
 		return false;
 
 	if(isConnected()) {
@@ -155,10 +158,10 @@ bool PimocoMount::ISNewNumber(const char *dev, const char *name, double values[]
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Telescope::ISNewNumber(dev, name, values, names, n);
 
-	int res=stepperHA.ISNewNumber(&HACurrentMaNP, &HARampNP, name, values, names, n);
+	int res=stepperHA.ISNewNumber(&HAMotorNP, &HARampNP, name, values, names, n);
 	if(res>=0)
 		return res>0;
-	res=stepperDec.ISNewNumber(&DecCurrentMaNP, &DecRampNP, name, values, names, n);
+	res=stepperDec.ISNewNumber(&DecMotorNP, &DecRampNP, name, values, names, n);
 	if(res>=0)
 		return res>0;
     
@@ -169,7 +172,12 @@ bool PimocoMount::ISNewSwitch(const char *dev, const char *name, ISState *states
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Telescope::ISNewSwitch(dev, name, states, names, n);
 
-    // if(strcmp(name, ...)) { } else
+	int res=stepperHA.ISNewSwitch(&HAMSwitchSP, name, states, names, n);
+	if(res>=0)
+		return res>0;
+	res=stepperDec.ISNewSwitch(&DecMSwitchSP, name, states, names, n);
+	if(res>=0)
+		return res>0;
 
 	return INDI::Telescope::ISNewSwitch(dev, name, states, names, n);
 }
@@ -191,44 +199,58 @@ void PimocoMount::TimerHit() {
 	if(!isConnected())
 		return;
 
-	// update state from device
-	auto pos=0;
-	if(!stepperHA.getPosition(&pos)) {
-		LOG_ERROR("Error reading HA position");
-	    // FocusAbsPosNP.s = IPS_ALERT;
-	} else {
-	    /* auto status=stepper.getStatus();
-	    if((FocusAbsPosNP.s==IPS_BUSY) && (status&Stepper::TMC_STAND_STILL))
-	    	LOGF_INFO("Focuser has reached position %u", pos);
-
-	    FocusAbsPosN[0].value = pos;
-	    FocusAbsPosNP.s = (status & Stepper::TMC_STAND_STILL) ? IPS_OK : IPS_BUSY;
-	    FocusRelPosNP.s = FocusAbsPosNP.s;
-	    IDSetNumber(&FocusAbsPosNP, NULL);		
-	    IDSetNumber(&FocusRelPosNP, NULL); */		
-	}
-
-	if(!stepperDec.getPosition(&pos)) {
-		LOG_ERROR("Error reading Dec position");
-	    // FocusAbsPosNP.s = IPS_ALERT;
-	} else {
-	    /* auto status=stepper.getStatus();
-	    if((FocusAbsPosNP.s==IPS_BUSY) && (status&Stepper::TMC_STAND_STILL))
-	    	LOGF_INFO("Focuser has reached position %u", pos);
-
-	    FocusAbsPosN[0].value = pos;
-	    FocusAbsPosNP.s = (status & Stepper::TMC_STAND_STILL) ? IPS_OK : IPS_BUSY;
-	    FocusRelPosNP.s = FocusAbsPosNP.s;
-	    IDSetNumber(&FocusAbsPosNP, NULL);		
-	    IDSetNumber(&FocusRelPosNP, NULL); */		
-	}
+	ReadScopeStatus();
 	
     SetTimer(getCurrentPollingPeriod());
 }
 
 
 bool PimocoMount::ReadScopeStatus() {
-	return false;
+	if (!isConnected())
+		return false;
+
+	// get local hour angle and declination angle from scope
+	double localHaHours, decDegrees;
+	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
+		return false;
+
+	// update scope status
+	auto  haStatus=stepperHA.getStatus();
+	auto decStatus=stepperDec.getStatus();
+	switch(TrackState) {
+        case SCOPE_IDLE:
+        	break; // FIXME
+
+        case SCOPE_SLEWING:
+        	break; // FIXME
+
+        case SCOPE_TRACKING:
+        	break; // FIXME
+
+        case SCOPE_PARKING:
+        	if((haStatus & Stepper::TMC_POSITION_REACHED) && (decStatus & Stepper::TMC_POSITION_REACHED))
+        		TrackState=SCOPE_PARKED;
+        	break;
+
+        case SCOPE_PARKED:
+        	break;  // FIXME 
+   	}
+
+   	// calculate local sidereal time
+   	struct ln_date lnDate;
+   	ln_get_date_from_sys(&lnDate);
+   	double julianDay=ln_get_julian_day(&lnDate);
+   	double gast=ln_get_apparent_sidereal_time(julianDay);
+ 	double observerLongitudeDegreesEastPositive=LocationN[LOCATION_LONGITUDE].value;
+ 	double last=gast + observerLongitudeDegreesEastPositive/15.0;
+
+ 	// calculate and update RA and Dec
+   	double raHours=rangeHA(last - localHaHours); 
+ 	LOGF_INFO("lha %f gast %f obsLong %f last %f raHours %f", localHaHours, gast, observerLongitudeDegreesEastPositive, last, raHours);
+   	decDegrees=rangeDec(decDegrees);
+    NewRaDec(raHours, decDegrees); 
+
+	return true;
 }
 
 // Protected class members

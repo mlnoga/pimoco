@@ -65,15 +65,21 @@ protected:
     // UI controls
     //
 
-    INumber HACurrentMaN[2]={};
-    INumberVectorProperty HACurrentMaNP;
+    INumber HAMotorN[4]={};
+    INumberVectorProperty HAMotorNP;
+
+    ISwitch HAMSwitchS[1]={};
+    ISwitchVectorProperty HAMSwitchSP;
 
     INumber HARampN[9]={};
     INumberVectorProperty HARampNP;
 
-    INumber DecCurrentMaN[2]={};
-    INumberVectorProperty DecCurrentMaNP;
+    INumber DecMotorN[4]={};
+    INumberVectorProperty DecMotorNP;
 
+    ISwitch DecMSwitchS[1]={};
+    ISwitchVectorProperty DecMSwitchSP;
+    
     INumber DecRampN[9]={};
     INumberVectorProperty DecRampNP;
 
