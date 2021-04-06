@@ -33,27 +33,29 @@ public:
 	// Destroys this pimoco focuser. Stops device motion for safety's sake
 	~PimocoMount();
 
-	virtual const char *getDefaultName();
-    virtual bool initProperties();
-    virtual bool updateProperties();
+	virtual const char *getDefaultName() override;
+    virtual bool initProperties() override;
+    virtual bool updateProperties() override;
 
-    virtual void ISGetProperties(const char *dev);
-    virtual bool ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n);
-    virtual bool ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n);
-    virtual bool ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n);
-    virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n);
-    virtual bool ISSnoopDevice(XMLEle *root);
+    virtual void ISGetProperties(const char *dev) override;
+    virtual bool ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n) override;
+    virtual bool ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n) override;
+    virtual bool ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n) override;
+    virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n) override;
+    virtual bool ISSnoopDevice(XMLEle *root) override;
 
     // Updates number vector property with the given values if res is true and display status IPS_OK, else display status IPS_ALERT. Returns res for convenience. 
     bool ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res);
 
 protected:
-    virtual bool Connect();
-    virtual bool Disconnect();
-    virtual bool Handshake();
-    virtual void TimerHit();
+    virtual bool saveConfigItems(FILE *fp) override;
 
-    virtual bool ReadScopeStatus();
+    virtual bool Connect() override;
+    virtual bool Disconnect() override;
+    virtual bool Handshake() override;
+    virtual void TimerHit() override;
+
+    virtual bool ReadScopeStatus() override;
 
 
 	Stepper stepperHA;

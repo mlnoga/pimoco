@@ -33,32 +33,34 @@ public:
 	// Destroys this pimoco focuser. Stops device motion for safety's sake
 	~PimocoFocuser();
 
-	virtual const char *getDefaultName();
-    virtual bool initProperties();
-    virtual bool updateProperties();
+	virtual const char *getDefaultName() override;
+    virtual bool initProperties() override;
+    virtual bool updateProperties() override;
 
-    virtual void ISGetProperties(const char *dev);
-    virtual bool ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n);
-    virtual bool ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n);
-    virtual bool ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n);
-    virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n);
-    virtual bool ISSnoopDevice(XMLEle *root);
+    virtual void ISGetProperties(const char *dev) override;
+    virtual bool ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n) override;
+    virtual bool ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n) override;
+    virtual bool ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n) override;
+    virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n) override;
+    virtual bool ISSnoopDevice(XMLEle *root) override;
 
     // Updates number vector property with the given values if res is true and display status IPS_OK, else display status IPS_ALERT. Returns res for convenience. 
     bool ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res);
 
 protected:
-    virtual bool Connect();
-    virtual bool Disconnect();
-    virtual bool Handshake();
-    virtual void TimerHit();
+    virtual bool saveConfigItems(FILE *fp) override;
 
-    virtual IPState MoveAbsFocuser(uint32_t targetTicks);
-    virtual IPState MoveRelFocuser(FocusDirection dir, uint32_t ticks);
-    virtual bool AbortFocuser();
-    virtual bool ReverseFocuser(bool enabled);
-    virtual bool SetFocuserSpeed(int speed);
-    virtual bool SyncFocuser(uint32_t ticks);
+    virtual bool Connect() override;
+    virtual bool Disconnect() override;
+    virtual bool Handshake() override;
+    virtual void TimerHit() override;
+
+    virtual IPState MoveAbsFocuser(uint32_t targetTicks) override;
+    virtual IPState MoveRelFocuser(FocusDirection dir, uint32_t ticks) override;
+    virtual bool AbortFocuser() override;
+    virtual bool ReverseFocuser(bool enabled) override;
+    virtual bool SetFocuserSpeed(int speed) override;
+    virtual bool SyncFocuser(uint32_t ticks) override;
 
 	Stepper stepper;
 
