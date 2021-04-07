@@ -283,6 +283,13 @@ bool Stepper::syncPosition(int32_t value) {
 }
 
 
+// Syncs current position in given units for full circle
+bool Stepper::syncPositionInUnits(double value, double full) {
+	int32_t stepsValue=round(value * (microsteps * stepsPerRev * gearRatio) / full);
+	return syncPosition(stepsValue);
+}
+
+
 bool Stepper::setTargetPosition(int32_t value) {
 	if(value<minPosition || value>maxPosition) {
 		LOGF_ERROR("Unable to set target position %'+d outside defined limits [%'+d, %'+d]", value, minPosition, maxPosition);

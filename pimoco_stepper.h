@@ -69,6 +69,18 @@ public:
 	// then restores previous ramping mode afterwards. Returns true on success, else false	
 	bool syncPosition(int32_t value);
 
+	// Syncs current position in radians, based on usteps, steps and gear ratio
+	bool syncPositionRadians(double value) { return syncPositionInUnits(value, 2.0*M_PI); }
+
+	// Syncs current position in degrees, based on usteps, steps and gear ratio
+	bool syncPositionDegrees(double value) { return syncPositionInUnits(value, 360.0); }
+
+	// Syncs current position in hours, based on usteps, steps and gear ratio
+	bool syncPositionHours(double value) { return syncPositionInUnits(value, 24.0); }
+
+	// Syncs current position in given units for full circle
+	bool syncPositionInUnits(double value, double full);
+
 	// Gets the target position for gotos. Returns true on success, else false
 	bool getTargetPosition(int32_t *result) { return getRegister(TMCR_XTARGET, (uint32_t*) result); }
 
