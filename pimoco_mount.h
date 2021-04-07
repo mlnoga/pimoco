@@ -58,6 +58,7 @@ protected:
     virtual bool ReadScopeStatus() override;
 
     virtual bool SetTrackEnabled(bool enabled) override;
+    virtual bool SetTrackMode(uint8_t mode) override;
     virtual bool SetTrackRate(double raRate, double deRate) override;
 
 	Stepper stepperHA;
@@ -65,6 +66,24 @@ protected:
 
     const char *spiDeviceFilenameHA;
     const char *spiDeviceFilenameDec;
+
+    // Tracking rates for sidereal, solar, lunar and custom (defaults to sidereal)
+    static const double trackRates[];
+
+    // Tracking rate variable names
+    static const char *trackRateNames[];
+
+    // Tracking rate UI labels
+    static const char *trackRateLabels[];
+
+    bool    trackEnabled=false;
+    uint8_t trackMode=0;
+
+    double  trackRateRA =trackRates[trackMode];
+    double  trackRateDec=0;
+
+    double  trackRateCustomRA =trackRates[TRACK_CUSTOM];
+    double  trackRateCustomDec=0;    
 
     // UI controls
     //
@@ -88,6 +107,7 @@ protected:
     INumberVectorProperty DecRampNP;
 
 public:
+    // Names of the mount configuration tabs
     static const char *HA_TAB;
     static const char *DEC_TAB;
 };

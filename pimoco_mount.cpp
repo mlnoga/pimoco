@@ -30,7 +30,30 @@
 // Singleton instance
 PimocoMount mount;
 
-// Name of the mount tab
+const double PimocoMount::trackRates[]={
+    15.041067, // TRACK_SIDEREAL
+    15.0,      // TRACK_SOLAR
+    14.685,    // TRACK_LUNAR
+    15.041067, // TRACK_CUSTOM
+    15.0369,   // King tracking rate, not defined in INDI standard
+};
+
+const char *PimocoMount::trackRateNames[]={
+    "SIDEREAL", // TRACK_SIDEREAL
+    "SOLAR",    // TRACK_SOLAR
+    "LUNAR",    // TRACK_LUNAR
+    "CUSTOM",   // TRACK_CUSTOM
+    "KING",     // King tracking rate, not defined in INDI standard
+};
+
+const char *PimocoMount::trackRateLabels[]={
+    "Sidereal", // TRACK_SIDEREAL
+    "Solar",    // TRACK_SOLAR
+    "Lunar",    // TRACK_LUNAR
+    "Custom",   // TRACK_CUSTOM
+    "King",     // King tracking rate, not defined in INDI standard
+};
+
 const char *PimocoMount::HA_TAB="Hour angle";
 const char *PimocoMount::DEC_TAB="Declination";
 
@@ -104,6 +127,12 @@ const char *PimocoMount::getDefaultName() {
 bool PimocoMount::initProperties() {
 	if(!INDI::Telescope::initProperties()) 
 		return false;
+
+	AddTrackMode(trackRateNames[TRACK_SIDEREAL], trackRateLabels[TRACK_SIDEREAL], true);
+	AddTrackMode(trackRateNames[TRACK_SOLAR],    trackRateLabels[TRACK_SOLAR],    false);
+	AddTrackMode(trackRateNames[TRACK_LUNAR],    trackRateLabels[TRACK_LUNAR],    false);
+	uint32_t res=AddTrackMode(trackRateNames[TRACK_CUSTOM],   trackRateLabels[TRACK_CUSTOM],   false);
+	LOGF_INFO("Added tracking mode %d", res);
 
 	stepperHA .initProperties( HAMotorN, & HAMotorNP,  HAMSwitchS, & HAMSwitchSP, HARampN, & HARampNP,  
 							  "HA_MOTOR", "Motor", "HA_MSWITCH", "Switches", "HA_RAMP", "Ramp", HA_TAB);
@@ -236,6 +265,9 @@ bool PimocoMount::Connect() {
 	}
 	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
 
+	if(!ReadScopeStatus())
+		return false;
+
 	uint32_t pp=getPollingPeriod();
 	if (pp > 0)
 		SetTimer(pp);
@@ -314,21 +346,65 @@ bool PimocoMount::ReadScopeStatus() {
 	return true;
 }
 
+
 bool PimocoMount::SetTrackEnabled(bool enabled) {
-	LOGF_INFO("%s tracking", enabled ? "Enabling" : "Disabling");
-	if(!stepperHA.setTargetVelocityArcsecPerSec(enabled ? 15.041067 : 0.0)) {
-		LOGF_ERROR("%s tracking", enabled ? "Enabling" : "Disabling");
-		return false;
+	if(enabled) {
+		LOGF_INFO("Enabling %s tracking mode (%d) with RA rate %.4f and Dec rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA, trackRateDec);		
+		if(!stepperHA .setTargetVelocityArcsecPerSec(trackRateRA ) ||
+	  	   !stepperDec.setTargetVelocityArcsecPerSec(trackRateDec) 	  ) {
+			LOG_ERROR("Enabling tracking");
+			return false;
+		}
+	} else {
+		LOG_INFO("Disabling tracking");		
+		if(!stepperHA .setTargetVelocityArcsecPerSec(0) ||
+	  	   !stepperDec.setTargetVelocityArcsecPerSec(0)    ) {
+			LOG_ERROR("Disabling tracking");
+			return false;
+		}
 	}
+	trackEnabled=enabled;
 	return true;
 }
 
-bool PimocoMount::SetTrackRate(double raRate, double deRate) {
-	LOGF_INFO("Setting tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
-	if(!stepperHA.setTargetVelocityArcsecPerSec(raRate) ||
-	   !stepperHA.setTargetVelocityArcsecPerSec(raRate)    ) {
-		LOGF_ERROR("Error setting tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
+
+bool PimocoMount::SetTrackMode(uint8_t mode) {
+	if(mode>TRACK_CUSTOM) {
+		LOGF_ERROR("Invalid tracking mode %d", mode);
 		return false;
 	}
+
+	trackMode   =  mode;
+	trackRateRA = (mode==TRACK_CUSTOM) ? trackRateCustomRA  : trackRates[trackMode];
+	trackRateDec= (mode==TRACK_CUSTOM) ? trackRateCustomDec :  0;
+	LOGF_INFO("Selecting %s tracking mode (%d) with RA rate %.4f and Dec rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA, trackRateDec);		
+
+	if(trackEnabled)
+		if(!stepperHA .setTargetVelocityArcsecPerSec(trackRateRA ) ||
+	  	   !stepperDec.setTargetVelocityArcsecPerSec(trackRateDec) 	  ) {
+			LOG_ERROR("Enabling tracking");
+			return false;
+		}
+	return true;
+}
+
+
+bool PimocoMount::SetTrackRate(double raRate, double deRate) {
+	LOGF_INFO("Setting custom tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
+	trackRateCustomRA =raRate;
+	trackRateCustomDec=deRate;
+
+	if(trackMode==TRACK_CUSTOM) {
+		trackRateRA =raRate;
+		trackRateDec=deRate;		
+
+		if(trackEnabled) 
+			if(!stepperHA .setTargetVelocityArcsecPerSec(raRate) ||
+			   !stepperDec.setTargetVelocityArcsecPerSec(deRate)    ) {
+				LOGF_ERROR("Error setting custom tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
+				return false;
+			}
+	}
+
 	return true;
 }
