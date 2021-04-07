@@ -263,10 +263,9 @@ bool PimocoMount::Connect() {
 		LOGF_WARN("Connection to Dec on %s failed", spiDeviceFilenameDec);
 		return false;
 	}
-	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
-
 	if(!ReadScopeStatus())
 		return false;
+	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
 
 	uint32_t pp=getPollingPeriod();
 	if (pp > 0)
@@ -299,9 +298,6 @@ void PimocoMount::TimerHit() {
 
 
 bool PimocoMount::ReadScopeStatus() {
-	if (!isConnected())
-		return false;
-
 	// get local hour angle and declination angle from scope
 	double localHaHours, decDegrees;
 	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
@@ -329,17 +325,9 @@ bool PimocoMount::ReadScopeStatus() {
         	break;  // FIXME 
    	}
 
-   	// calculate local sidereal time
-   	struct ln_date lnDate;
-   	ln_get_date_from_sys(&lnDate);
-   	double julianDay=ln_get_julian_day(&lnDate);
-   	double gast=ln_get_apparent_sidereal_time(julianDay);
- 	double observerLongitudeDegreesEastPositive=LocationN[LOCATION_LONGITUDE].value;
- 	double last=gast + observerLongitudeDegreesEastPositive/15.0;
-
  	// calculate and update RA and Dec
-   	double raHours=rangeHA(last - localHaHours); 
- 	LOGF_INFO("lha %f gast %f obsLong %f last %f raHours %f", localHaHours, gast, observerLongitudeDegreesEastPositive, last, raHours);
+   	double last=getLocalSiderealTime();
+   	double raHours=range24(last - localHaHours); 
    	decDegrees=rangeDec(decDegrees);
     NewRaDec(raHours, decDegrees); 
 
@@ -407,4 +395,30 @@ bool PimocoMount::SetTrackRate(double raRate, double deRate) {
 	}
 
 	return true;
+}
+
+
+bool PimocoMount::Sync(double ra, double dec) {
+	double last=getLocalSiderealTime();
+   	double ha  =rangeHA(last - ra); 
+
+   	LOGF_INFO("Syncing position to RA %f (HA %f) Dec %f", ra, ha, dec);
+
+	if(!stepperHA.syncPositionHours(ha) || !stepperDec.syncPositionDegrees(dec) ) {
+		LOG_ERROR("Syncing position");
+		return false;
+	}
+	return true;
+}
+
+
+
+double PimocoMount::getLocalSiderealTime() {
+   	struct ln_date lnDate;
+   	ln_get_date_from_sys(&lnDate);
+   	double julianDay=ln_get_julian_day(&lnDate);
+   	double gast=ln_get_apparent_sidereal_time(julianDay);
+ 	double observerLongitudeDegreesEastPositive=LocationN[LOCATION_LONGITUDE].value;
+ 	double last=gast + observerLongitudeDegreesEastPositive/15.0;
+ 	return last;	
 }

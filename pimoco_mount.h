@@ -61,6 +61,11 @@ protected:
     virtual bool SetTrackMode(uint8_t mode) override;
     virtual bool SetTrackRate(double raRate, double deRate) override;
 
+    virtual bool Sync(double ra, double dec) override;
+
+    // Returns local apparent sidereal time in hours
+    double getLocalSiderealTime();
+
 	Stepper stepperHA;
     Stepper stepperDec;
 
