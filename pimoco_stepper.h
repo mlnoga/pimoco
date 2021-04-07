@@ -90,6 +90,18 @@ public:
 	// Sets the target position and performs a blocking go-to with optional timeout (0=no timeout). Returns when position reached, or timeout occurs. Returns true on success, else false
 	bool setTargetPositionBlocking(int32_t value, uint32_t timeoutMs=0);
 
+	// Sets the target position in radians, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
+	bool setTargetPositionRadians(double value) { return setTargetPositionInUnits(value, 2.0*M_PI); }
+
+	// Sets the target position in degrees, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
+	bool setTargetPositionDegrees(double value) { return setTargetPositionInUnits(value, 360.0); }
+
+	// Sets the target position in hours, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
+	bool setTargetPositionHours(double value) { return setTargetPositionInUnits(value, 24.0); }
+
+	// Syncs current position in given units for full circle
+	bool setTargetPositionInUnits(double value, double full);
+
 	// Get minimum position limit. Returns true on success, else false
 	bool getMinPosition(int32_t *result) { *result=minPosition; return true; }
 

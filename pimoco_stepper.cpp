@@ -283,7 +283,6 @@ bool Stepper::syncPosition(int32_t value) {
 }
 
 
-// Syncs current position in given units for full circle
 bool Stepper::syncPositionInUnits(double value, double full) {
 	int32_t stepsValue=round(value * (microsteps * stepsPerRev * gearRatio) / full);
 	return syncPosition(stepsValue);
@@ -302,6 +301,12 @@ bool Stepper::setTargetPosition(int32_t value) {
 	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
 		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
 	       setRegister(TMCR_XTARGET, (uint32_t) value);      // set target position to initiate movement
+}
+
+
+bool Stepper::setTargetPositionInUnits(double value, double full) {
+	int32_t stepsValue=round(value * (microsteps * stepsPerRev * gearRatio) / full);
+	return setTargetPosition(stepsValue);
 }
 
 
