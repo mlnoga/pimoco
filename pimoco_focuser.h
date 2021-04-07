@@ -55,6 +55,9 @@ protected:
     virtual bool Handshake() override;
     virtual void TimerHit() override;
 
+    // Updates focuser position and status flags from device. Returns true on success, else false.
+    bool ReadFocuserStatus();
+
     virtual IPState MoveAbsFocuser(uint32_t targetTicks) override;
     virtual IPState MoveRelFocuser(FocusDirection dir, uint32_t ticks) override;
     virtual bool AbortFocuser() override;

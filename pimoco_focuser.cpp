@@ -181,30 +181,6 @@ bool PimocoFocuser::saveConfigItems(FILE *fp){
     return true;
 }
 
-void PimocoFocuser::TimerHit() {
-	if(!isConnected())
-		return;
-
-	// update state from device
-	auto pos=0;
-	if(!stepper.getPosition(&pos)) {
-		LOG_ERROR("Error reading position");
-	    FocusAbsPosNP.s = IPS_ALERT;
-	} else {
-	    auto status=stepper.getStatus();
-	    if((FocusAbsPosNP.s==IPS_BUSY) && (status&Stepper::TMC_STAND_STILL))
-	    	LOGF_INFO("Focuser has reached position %u", pos);
-
-	    FocusAbsPosN[0].value = pos;
-	    FocusAbsPosNP.s = (status & Stepper::TMC_STAND_STILL) ? IPS_OK : IPS_BUSY;
-	    FocusRelPosNP.s = FocusAbsPosNP.s;
-	    IDSetNumber(&FocusAbsPosNP, NULL);		
-	    IDSetNumber(&FocusRelPosNP, NULL);		
-	}
-	
-    SetTimer(getCurrentPollingPeriod());
-}
-
 // Protected class members
 //
 
@@ -215,6 +191,9 @@ bool PimocoFocuser::Connect() {
 		return false;
 	}
 	LOGF_INFO("Connection on %s successful", spiDeviceFilename);
+
+	if(!ReadFocuserStatus())
+		return false;
 
 	uint32_t pp=getPollingPeriod();
 	if (pp > 0)
@@ -235,6 +214,37 @@ bool PimocoFocuser::Disconnect() {
 bool PimocoFocuser::Handshake() {
 	return true;
 }
+
+void PimocoFocuser::TimerHit() {
+	if(!isConnected())
+		return;
+
+	ReadFocuserStatus();
+
+    SetTimer(getCurrentPollingPeriod());
+}
+
+
+bool PimocoFocuser::ReadFocuserStatus() {
+	auto pos=0;
+	if(!stepper.getPosition(&pos)) {
+		LOG_ERROR("Error reading position");
+	    FocusAbsPosNP.s = IPS_ALERT;
+	    return false;
+	} else {
+	    auto status=stepper.getStatus();
+	    if((FocusAbsPosNP.s==IPS_BUSY) && (status&Stepper::TMC_STAND_STILL))
+	    	LOGF_INFO("Focuser has reached position %u", pos);
+
+	    FocusAbsPosN[0].value = pos;
+	    FocusAbsPosNP.s = (status & Stepper::TMC_STAND_STILL) ? IPS_OK : IPS_BUSY;
+	    FocusRelPosNP.s = FocusAbsPosNP.s;
+	    IDSetNumber(&FocusAbsPosNP, NULL);		
+	    IDSetNumber(&FocusRelPosNP, NULL);		
+	}
+	return true;
+}
+
 
 IPState PimocoFocuser::MoveAbsFocuser(uint32_t targetTicks) {
 	if(!stepper.setTargetPosition(targetTicks)) {
