@@ -190,10 +190,9 @@ bool PimocoFocuser::Connect() {
 		LOGF_WARN("Connection on %s failed", spiDeviceFilename);
 		return false;
 	}
-	LOGF_INFO("Connection on %s successful", spiDeviceFilename);
-
 	if(!ReadFocuserStatus())
 		return false;
+	LOGF_INFO("Connection on %s successful", spiDeviceFilename);
 
 	uint32_t pp=getPollingPeriod();
 	if (pp > 0)
