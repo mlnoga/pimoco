@@ -64,6 +64,12 @@ protected:
     virtual bool Sync(double ra, double dec) override;
     virtual bool Goto(double ra, double dec) override;
 
+    virtual bool SetParkPosition(double Axis1Value, double Axis2Value) override;
+    virtual bool SetCurrentPark() override;
+    virtual bool SetDefaultPark() override;
+    virtual bool Park() override;
+    virtual bool UnPark() override;
+
     // Returns local apparent sidereal time in hours
     double getLocalSiderealTime();
 
@@ -114,6 +120,13 @@ protected:
 
     // Indicates if given axis has reached its goto target
     bool    gotoReachedRA=false, gotoReachedDec=false;
+
+    // Stores if the scope was tracking before a goto was initiated. Required to work around INDI bug 
+    bool    wasTrackingBeforeGoto=false;
+
+    // Park position
+    double parkPositionHA=0, parkPositionDec=0;
+
 
     // UI controls
     //

@@ -100,10 +100,10 @@ PimocoMount::PimocoMount() : stepperHA(getDeviceName()), stepperDec(getDeviceNam
        		TELESCOPE_CAN_GOTO |
             TELESCOPE_CAN_SYNC |
             TELESCOPE_CAN_PARK |
-            TELESCOPE_CAN_ABORT |
+            // TELESCOPE_CAN_ABORT |
             TELESCOPE_HAS_TIME |
             TELESCOPE_HAS_LOCATION |
-            TELESCOPE_HAS_PIER_SIDE |
+            // TELESCOPE_HAS_PIER_SIDE |
             // TELESCOPE_HAS_PEC |
             TELESCOPE_HAS_TRACK_MODE |
             TELESCOPE_CAN_CONTROL_TRACK |
@@ -113,6 +113,8 @@ PimocoMount::PimocoMount() : stepperHA(getDeviceName()), stepperDec(getDeviceNam
             0, 4);
 
 	setTelescopeConnection(CONNECTION_NONE);
+
+    SetParkDataType(PARK_HA_DEC);
 }
 
 PimocoMount::~PimocoMount() {
@@ -323,7 +325,7 @@ bool PimocoMount::ReadScopeStatus() {
         			// if RA axis has reached target, reenable partial tracking if previously active
         			// FIXME: should really use an interrupt for this, not a timer-based action
 	        		gotoReachedRA=true;
-    	    		if(RememberTrackState==SCOPE_TRACKING)
+    	    		if(wasTrackingBeforeGoto)
         				SetTrackEnabledRA();
         		} else {
 		        	// while HA axis is moving, reissue HA goto command updated with current time
@@ -339,13 +341,13 @@ bool PimocoMount::ReadScopeStatus() {
         		// if Dec axis has reached target, reenable partial tracking if previously active
     			// FIXME: should really use an interrupt for this, not a timer-based action
         		gotoReachedDec=true;
-        		if(RememberTrackState==SCOPE_TRACKING)
+        		if(wasTrackingBeforeGoto)
         			SetTrackEnabledDec();   
         	}
         	if(gotoReachedRA && gotoReachedDec) {
         		// restore tracking state visible to INDI once both axes have reached target
         		LOGF_INFO("Goto reached target position RA %f Dec %f", gotoTargetRA, gotoTargetDec);
-    			TrackState=RememberTrackState;
+        		TrackState=wasTrackingBeforeGoto ? SCOPE_TRACKING : SCOPE_IDLE;
         	}
         	break;
 
@@ -354,7 +356,7 @@ bool PimocoMount::ReadScopeStatus() {
 
         case SCOPE_PARKING:
         	if((haStatus & Stepper::TMC_POSITION_REACHED) && (decStatus & Stepper::TMC_POSITION_REACHED))
-        		TrackState=SCOPE_PARKED;
+	        	SetParked(true); // updates TrackState and logs
         	break;
 
         case SCOPE_PARKED:
@@ -466,9 +468,6 @@ bool PimocoMount::Sync(double ra, double dec) {
 
 
 bool PimocoMount::Goto(double ra, double dec) {
-	gotoReachedRA=false;
-	gotoReachedDec=false;
-
 	double last=getLocalSiderealTime();
    	double ha  =rangeHA(last - ra); 
 
@@ -478,15 +477,62 @@ bool PimocoMount::Goto(double ra, double dec) {
 		LOG_ERROR("Goto");
 		return false;
 	}
+	gotoReachedRA=false;
+	gotoReachedDec=false;
 
 	// cache target ra/dec for periodic reissue of ha-based target given progressing time
 	gotoTargetRA=ra;
 	gotoTargetDec=dec;
  
+ 	if(TrackState==SCOPE_TRACKING)
+ 		wasTrackingBeforeGoto=true;
+ 	else if(TrackState==SCOPE_IDLE)
+ 		wasTrackingBeforeGoto=false;
+ 	else
+ 		; // don't touch
+
     TrackState = SCOPE_SLEWING;
   	return true;
 }
 
+
+bool PimocoMount::SetParkPosition(double Axis1Value, double Axis2Value) {
+   	parkPositionHA =Axis1Value;
+	parkPositionDec=Axis2Value;
+   	LOGF_INFO("Setting park position to HA %f Dec %f", parkPositionHA, parkPositionDec);
+	return true;
+}
+
+bool PimocoMount::SetCurrentPark() {
+	double localHaHours, decDegrees;
+	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
+		return false;
+	parkPositionHA =localHaHours;
+	parkPositionDec=decDegrees;
+   	LOGF_INFO("Setting park position to current position HA %f Dec %f", parkPositionHA, parkPositionDec);
+	return true;
+}
+
+bool PimocoMount::SetDefaultPark() {
+   	LOG_ERROR("There is no default park position for this mount, please set a custom one");
+	return false;
+}
+
+bool PimocoMount::Park() {
+   	LOGF_INFO("Parking at HA %f Dec %f", parkPositionHA, parkPositionDec);
+	if(!stepperHA.setTargetPositionHours(parkPositionHA) || !stepperDec.setTargetPositionDegrees(parkPositionDec) ) {
+		LOG_ERROR("Parking");
+		return false;
+	}
+ 
+    TrackState = SCOPE_PARKING;
+  	return true;
+}
+
+bool PimocoMount::UnPark() {
+	SetParked(false); // updates TrackState and logs
+	return true;
+}
 
 double PimocoMount::getLocalSiderealTime() {
    	struct ln_date lnDate;
