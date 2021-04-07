@@ -293,7 +293,9 @@ void PimocoMount::TimerHit() {
 
 	ReadScopeStatus();
 	
-    SetTimer(getCurrentPollingPeriod());
+	// Workaround: increase polling frequency to 20/s while slewing, to allow fast switch back to tracking 
+	uint32_t pollingPeriod= (TrackState==SCOPE_SLEWING) ? 50 : getCurrentPollingPeriod();
+    SetTimer(pollingPeriod);
 }
 
 
@@ -303,18 +305,52 @@ bool PimocoMount::ReadScopeStatus() {
 	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
 		return false;
 
+ 	// calculate RA and Dec
+   	double last=getLocalSiderealTime();
+   	double raHours=range24(last - localHaHours); 
+   	decDegrees=rangeDec(decDegrees);
+
 	// update scope status
-	auto  haStatus=stepperHA.getStatus();
+	auto  haStatus=stepperHA .getStatus();
 	auto decStatus=stepperDec.getStatus();
 	switch(TrackState) {
         case SCOPE_IDLE:
-        	break; // FIXME
+        	break; // do nothing
 
         case SCOPE_SLEWING:
-        	break; // FIXME
+        	if(!gotoReachedRA) {
+        		if(haStatus & Stepper::TMC_POSITION_REACHED) {
+        			// if RA axis has reached target, reenable partial tracking if previously active
+        			// FIXME: should really use an interrupt for this, not a timer-based action
+	        		gotoReachedRA=true;
+    	    		if(RememberTrackState==SCOPE_TRACKING)
+        				SetTrackEnabledRA();
+        		} else {
+		        	// while HA axis is moving, reissue HA goto command updated with current time
+					double last=getLocalSiderealTime();
+		   			double ha  =rangeHA(last - gotoTargetRA); 
+					if(!stepperHA.setTargetPositionHours(ha)) {
+						LOG_ERROR("Updating goto HA target");
+						return false;
+					}
+        		}
+        	}
+        	if(!gotoReachedDec && (decStatus & Stepper::TMC_POSITION_REACHED)) {
+        		// if Dec axis has reached target, reenable partial tracking if previously active
+    			// FIXME: should really use an interrupt for this, not a timer-based action
+        		gotoReachedDec=true;
+        		if(RememberTrackState==SCOPE_TRACKING)
+        			SetTrackEnabledDec();   
+        	}
+        	if(gotoReachedRA && gotoReachedDec) {
+        		// restore tracking state visible to INDI once both axes have reached target
+        		LOGF_INFO("Goto reached target position RA %f Dec %f", gotoTargetRA, gotoTargetDec);
+    			TrackState=RememberTrackState;
+        	}
+        	break;
 
         case SCOPE_TRACKING:
-        	break; // FIXME
+        	break; // FIXME correct fractional tracking speed issues
 
         case SCOPE_PARKING:
         	if((haStatus & Stepper::TMC_POSITION_REACHED) && (decStatus & Stepper::TMC_POSITION_REACHED))
@@ -322,13 +358,9 @@ bool PimocoMount::ReadScopeStatus() {
         	break;
 
         case SCOPE_PARKED:
-        	break;  // FIXME 
+        	break;  // do nothing 
    	}
 
- 	// calculate and update RA and Dec
-   	double last=getLocalSiderealTime();
-   	double raHours=range24(last - localHaHours); 
-   	decDegrees=rangeDec(decDegrees);
     NewRaDec(raHours, decDegrees); 
 
 	return true;
@@ -337,6 +369,8 @@ bool PimocoMount::ReadScopeStatus() {
 
 bool PimocoMount::SetTrackEnabled(bool enabled) {
 	if(enabled) {
+		uint8_t trackMode=getTrackMode();
+		double trackRateRA=getTrackRateRA(), trackRateDec=getTrackRateDec();
 		LOGF_INFO("Enabling %s tracking mode (%d) with RA rate %.4f and Dec rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA, trackRateDec);		
 		if(!stepperHA .setTargetVelocityArcsecPerSec(trackRateRA ) ||
 	  	   !stepperDec.setTargetVelocityArcsecPerSec(trackRateDec) 	  ) {
@@ -351,7 +385,31 @@ bool PimocoMount::SetTrackEnabled(bool enabled) {
 			return false;
 		}
 	}
-	trackEnabled=enabled;
+	// caller sets TrackState=SCOPE_TRACKING, no need to do it here
+	return true;
+}
+
+
+bool PimocoMount::SetTrackEnabledRA() {
+	uint8_t trackMode=getTrackMode();
+	double trackRateRA=getTrackRateRA();
+	LOGF_INFO("Enabling %s tracking mode (%d) for RA with rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA);		
+	if(!stepperHA .setTargetVelocityArcsecPerSec(trackRateRA ) ) {
+		LOG_ERROR("Enabling RA tracking");
+		return false;
+	}
+	return true;
+}
+
+
+bool PimocoMount::SetTrackEnabledDec() {
+	uint8_t trackMode=getTrackMode();
+	double trackRateDec=getTrackRateDec();
+	LOGF_INFO("Enabling %s tracking mode (%d) for Dec with rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateDec);		
+	if(!stepperDec.setTargetVelocityArcsecPerSec(trackRateDec) ) {
+		LOG_ERROR("Enabling Dec tracking");
+		return false;
+	}
 	return true;
 }
 
@@ -362,12 +420,11 @@ bool PimocoMount::SetTrackMode(uint8_t mode) {
 		return false;
 	}
 
-	trackMode   =  mode;
-	trackRateRA = (mode==TRACK_CUSTOM) ? trackRateCustomRA  : trackRates[trackMode];
-	trackRateDec= (mode==TRACK_CUSTOM) ? trackRateCustomDec :  0;
+	uint8_t trackMode=getTrackMode();
+	double trackRateRA=getTrackRateRA(), trackRateDec=getTrackRateDec();
 	LOGF_INFO("Selecting %s tracking mode (%d) with RA rate %.4f and Dec rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA, trackRateDec);		
 
-	if(trackEnabled)
+	if(TrackState==SCOPE_TRACKING)
 		if(!stepperHA .setTargetVelocityArcsecPerSec(trackRateRA ) ||
 	  	   !stepperDec.setTargetVelocityArcsecPerSec(trackRateDec) 	  ) {
 			LOG_ERROR("Enabling tracking");
@@ -382,17 +439,13 @@ bool PimocoMount::SetTrackRate(double raRate, double deRate) {
 	trackRateCustomRA =raRate;
 	trackRateCustomDec=deRate;
 
-	if(trackMode==TRACK_CUSTOM) {
-		trackRateRA =raRate;
-		trackRateDec=deRate;		
-
-		if(trackEnabled) 
-			if(!stepperHA .setTargetVelocityArcsecPerSec(raRate) ||
-			   !stepperDec.setTargetVelocityArcsecPerSec(deRate)    ) {
-				LOGF_ERROR("Error setting custom tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
-				return false;
-			}
-	}
+	// update device if tracking with custom rate
+	if(TrackState==SCOPE_TRACKING && getTrackMode()==TRACK_CUSTOM)
+		if(!stepperHA .setTargetVelocityArcsecPerSec(raRate) ||
+		   !stepperDec.setTargetVelocityArcsecPerSec(deRate)    ) {
+			LOGF_ERROR("Error setting custom tracking rate to RA %.3f Dec %.3f arcsec/s", raRate, deRate);
+			return false;
+		}
 
 	return true;
 }
@@ -411,6 +464,28 @@ bool PimocoMount::Sync(double ra, double dec) {
 	return true;
 }
 
+
+bool PimocoMount::Goto(double ra, double dec) {
+	gotoReachedRA=false;
+	gotoReachedDec=false;
+
+	double last=getLocalSiderealTime();
+   	double ha  =rangeHA(last - ra); 
+
+   	LOGF_INFO("Goto RA %f (HA %f) Dec %f", ra, ha, dec);
+
+	if(!stepperHA.setTargetPositionHours(ha) || !stepperDec.setTargetPositionDegrees(dec) ) {
+		LOG_ERROR("Goto");
+		return false;
+	}
+
+	// cache target ra/dec for periodic reissue of ha-based target given progressing time
+	gotoTargetRA=ra;
+	gotoTargetDec=dec;
+ 
+    TrackState = SCOPE_SLEWING;
+  	return true;
+}
 
 
 double PimocoMount::getLocalSiderealTime() {

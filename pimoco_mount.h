@@ -62,9 +62,34 @@ protected:
     virtual bool SetTrackRate(double raRate, double deRate) override;
 
     virtual bool Sync(double ra, double dec) override;
+    virtual bool Goto(double ra, double dec) override;
 
     // Returns local apparent sidereal time in hours
     double getLocalSiderealTime();
+
+    // Internal tracking methods
+    //
+
+    // Gets tracking mode 
+    uint8_t getTrackMode() const { return IUFindOnSwitchIndex(&TrackModeSP); }
+
+    // Gets tracking rate for RA for current tracking mode
+    double getTrackRateRA() const { 
+        uint8_t mode=getTrackMode();
+        return (mode==TRACK_CUSTOM) ? trackRateCustomRA : trackRates[mode];
+    }
+
+    // Gets tracking rate for Dec for current tracking mode
+    double getTrackRateDec() const { 
+        uint8_t mode=getTrackMode();
+        return (mode==TRACK_CUSTOM) ? trackRateCustomDec : 0;
+    }
+ 
+    // Enables tracking on RA axis only. For partial resumption of tracking once RA slew has reached its target
+    bool SetTrackEnabledRA();
+
+    // Enables tracking on Dec axis only. For partial resumption of tracking once Dec slew has reached its target
+    bool SetTrackEnabledDec();
 
 	Stepper stepperHA;
     Stepper stepperDec;
@@ -81,14 +106,14 @@ protected:
     // Tracking rate UI labels
     static const char *trackRateLabels[];
 
-    bool    trackEnabled=false;
-    uint8_t trackMode=0;
+    // Custom tracking rates for both axes. Active only in mode TRACK_CUSTOM
+    double  trackRateCustomRA =trackRates[TRACK_CUSTOM], trackRateCustomDec=0;    
 
-    double  trackRateRA =trackRates[trackMode];
-    double  trackRateDec=0;
+    // Target position for gotos. For periodic refresh of the HA-based actual hardware gotos as time progresses
+    double  gotoTargetRA=0, gotoTargetDec=0;
 
-    double  trackRateCustomRA =trackRates[TRACK_CUSTOM];
-    double  trackRateCustomDec=0;    
+    // Indicates if given axis has reached its goto target
+    bool    gotoReachedRA=false, gotoReachedDec=false;
 
     // UI controls
     //
