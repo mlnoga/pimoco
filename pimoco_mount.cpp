@@ -100,7 +100,7 @@ PimocoMount::PimocoMount() : stepperHA(getDeviceName()), stepperDec(getDeviceNam
        		TELESCOPE_CAN_GOTO |
             TELESCOPE_CAN_SYNC |
             TELESCOPE_CAN_PARK |
-            // TELESCOPE_CAN_ABORT |
+            TELESCOPE_CAN_ABORT |
             TELESCOPE_HAS_TIME |
             TELESCOPE_HAS_LOCATION |
             // TELESCOPE_HAS_PIER_SIDE |
@@ -365,6 +365,16 @@ bool PimocoMount::ReadScopeStatus() {
 
     NewRaDec(raHours, decDegrees); 
 
+	return true;
+}
+
+
+bool PimocoMount::Abort() {
+	LOG_INFO("Aborting all motion");
+	if(!SetTrackEnabled(false))
+		return false;
+	if(TrackState!=SCOPE_PARKED)
+		TrackState=SCOPE_IDLE;
 	return true;
 }
 

@@ -57,6 +57,8 @@ protected:
 
     virtual bool ReadScopeStatus() override;
 
+    virtual bool Abort() override;
+
     virtual bool SetTrackEnabled(bool enabled) override;
     virtual bool SetTrackMode(uint8_t mode) override;
     virtual bool SetTrackRate(double raRate, double deRate) override;
