@@ -21,7 +21,7 @@ This is
 * [Raspberry Pi GPIO](https://www.raspberrypi.org/documentation/hardware/raspberrypi/gpio/README.md)
 * [Raspberry Pi SPI](https://www.raspberrypi.org/documentation/hardware/raspberrypi/spi/README.md)
 * [Indi Github](https://github.com/indilib/indi)
-* [ibnova Sourceforge](http://libnova.sourceforge.net/)
+* [libnova Sourceforge](http://libnova.sourceforge.net/)
 
 
 ## Digikey parts list
@@ -99,3 +99,4 @@ Run standalone test with `make test` or `./test_stepper`.
 
 Run an Indi server testbed with `make serve` or `indiserver -v ./indi_pimoco_focuser ./indi_pimoco_mount`.
 
+Install with `make install` to use in KStars/EKOS. 
