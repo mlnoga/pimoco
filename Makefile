@@ -20,16 +20,18 @@ LFLAGS_MOUNT=-lindidriver -lnova
 CFLAGS=-Wall
 CXX=g++
 
-all: $(TARGET_TEST) $(TARGET_FOCUSER)
+all: $(TARGET_TEST) $(TARGET_FOCUSER) $(TARGET_MOUNT)
 
-install:
-	sudo cp $(TARGET_FOCUSER) /usr/local/bin
+# Indi requires drivers to be installed into /usr/bin, unfortunately the more suitable /usr/local/bin doesn't work
+install: $(TARGET_FOCUSER) $(TARGET_MOUNT)
+	sudo cp $(TARGET_FOCUSER) $(TARGET_MOUNT) /usr/bin/
+	sudo cp indi_pimoco.xml /usr/share/indi/
 
 clean:
-	rm -f $(TARGET_TEST) $(TARGET_FOCUSER)
+	rm -f $(TARGET_TEST) $(TARGET_FOCUSER) $(TARGET_MOUNT) 
 
 realclean: clean
-	rm -f $(OBJS_TEST) $(DEPS_TEST) $(OBJS_FOCUSER) $(DEPS_FOCUSER)
+	rm -f $(OBJS_TEST) $(DEPS_TEST) $(OBJS_FOCUSER) $(DEPS_FOCUSER) $(OBJS_MOUNT) $(DEPS_MOUNT)
 
 count:
 	wc -l *.cpp *.h
