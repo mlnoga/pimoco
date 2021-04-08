@@ -89,6 +89,11 @@ bool PimocoFocuser::initProperties() {
 	stepper.initProperties(MotorN, &MotorNP, MSwitchS, &MSwitchSP, RampN, &RampNP, 
 						   "MOTOR", "Motor", "SWITCHES", "Switches", "RAMP", "Ramp", FOCUS_TAB);
 
+	// load configuration data from file, as there is no device with own storage
+	loadConfig(true, MotorNP.name);
+	loadConfig(true, MSwitchSP.name);
+	loadConfig(true, RampNP.name);
+
     addDebugControl();
     return true;
 }
@@ -109,15 +114,6 @@ bool PimocoFocuser::updateProperties() {
 	return true;
 }
 
-void PimocoFocuser::ISGetProperties(const char *dev) {
-	INDI::Focuser::ISGetProperties(dev);
-
-	// load from configuration on init
-	loadConfig(true, MotorNP.name);
-	loadConfig(true, MSwitchSP.name);
-	loadConfig(true, RampNP.name);
-}
-
 bool PimocoFocuser::ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n) {
 	if(dev==NULL || strcmp(dev,getDeviceName()))
     	return INDI::Focuser::ISNewBLOB(dev, name, sizes, blobsizes, blobs, formats, names, n);
@@ -129,8 +125,10 @@ bool PimocoFocuser::ISNewBLOB(const char *dev, const char *name, int sizes[], in
 
 bool PimocoFocuser::ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res) 
 {
-	if(res)
+	if(res) {
 		IUUpdateNumber(NP, values, names, n);               
+		saveConfig(true, NP->name);
+	}
 	NP->s=res ? IPS_OK : IPS_ALERT;
 	IDSetNumber(NP, NULL);
 	return res;
@@ -140,10 +138,14 @@ bool PimocoFocuser::ISNewNumber(const char *dev, const char *name, double values
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Focuser::ISNewNumber(dev, name, values, names, n);
 
-	int res=stepper.ISNewNumber(&MotorNP, &MotorNP, name, values, names, n);
-	if(res>=0)
-		return res>0;
-    
+	int res;
+	if((res=stepper.ISNewNumber(&MotorNP, &RampNP, name, values, names, n)) > 0) {
+		saveConfig(true, MotorNP.name);
+		saveConfig(true, RampNP.name);
+		return true;
+	} else if(res==0)
+		return false;
+   
 	return INDI::Focuser::ISNewNumber(dev, name, values, names, n);
 }
 
@@ -151,9 +153,12 @@ bool PimocoFocuser::ISNewSwitch(const char *dev, const char *name, ISState *stat
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Focuser::ISNewSwitch(dev, name, states, names, n);
 
-	int res=stepper.ISNewSwitch(&MSwitchSP, name, states, names, n);
-	if(res>=0)
-		return res>0;
+	int res;
+	if((res=stepper.ISNewSwitch(&MSwitchSP, name, states, names, n)) >0) {
+		saveConfig(true, MSwitchSP.name);
+		return true;
+	} else if(res==0)
+		return false;
 
 	return INDI::Focuser::ISNewSwitch(dev, name, states, names, n);
 }

@@ -130,22 +130,35 @@ bool PimocoMount::initProperties() {
 	if(!INDI::Telescope::initProperties()) 
 		return false;
 
+	// Create the four standard tracking modes
 	AddTrackMode(trackRateNames[TRACK_SIDEREAL], trackRateLabels[TRACK_SIDEREAL], true);
 	AddTrackMode(trackRateNames[TRACK_SOLAR],    trackRateLabels[TRACK_SOLAR],    false);
 	AddTrackMode(trackRateNames[TRACK_LUNAR],    trackRateLabels[TRACK_LUNAR],    false);
-	uint32_t res=AddTrackMode(trackRateNames[TRACK_CUSTOM],   trackRateLabels[TRACK_CUSTOM],   false);
-	LOGF_INFO("Added tracking mode %d", res);
+	AddTrackMode(trackRateNames[TRACK_CUSTOM],   trackRateLabels[TRACK_CUSTOM],   false);
 
+	// Initialize stepper properties
 	stepperHA .initProperties( HAMotorN, & HAMotorNP,  HAMSwitchS, & HAMSwitchSP, HARampN, & HARampNP,  
 							  "HA_MOTOR", "Motor", "HA_MSWITCH", "Switches", "HA_RAMP", "Ramp", HA_TAB);
 	stepperDec.initProperties(DecMotorN, &DecMotorNP, DecMSwitchS, &DecMSwitchSP, DecRampN, &DecRampNP, 
 							  "DEC_MOTOR", "Motor", "DEC_MSWITCH", "Switches", "DEC_RAMP", "Ramp", DEC_TAB);
 
+	// Initialize mount properties
 	IUFillNumber(&SlewRatesN[0], SlewRateS[0].name, SlewRateS[0].label, "%.1f", 0, 1600, 16, 0.5);
 	IUFillNumber(&SlewRatesN[1], SlewRateS[1].name, SlewRateS[1].label, "%.1f", 0, 1600, 16, 16);
 	IUFillNumber(&SlewRatesN[2], SlewRateS[2].name, SlewRateS[2].label, "%.1f", 0, 1600, 16, 250);
 	IUFillNumber(&SlewRatesN[3], SlewRateS[3].name, SlewRateS[3].label, "%.1f", 0, 1600, 16, 1000);
 	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
+
+	// load configuration data from file, as there is no device with own storage
+	loadConfig(true, HAMotorNP.name);
+	loadConfig(true, HAMSwitchSP.name);
+	loadConfig(true, HARampNP.name);
+
+	loadConfig(true, DecMotorNP.name);
+	loadConfig(true, DecMSwitchSP.name);
+	loadConfig(true, DecRampNP.name);
+
+	loadConfig(true, SlewRatesNP.name);
 
     addDebugControl();
     return true;
@@ -169,19 +182,6 @@ bool PimocoMount::updateProperties() {
 	return true;
 }
 
-void PimocoMount::ISGetProperties(const char *dev) {
-	INDI::Telescope::ISGetProperties(dev);
-
-	// load from configuration on init
-	loadConfig(true, HAMotorNP.name);
-	loadConfig(true, HAMSwitchSP.name);
-	loadConfig(true, HARampNP.name);
-
-	loadConfig(true, DecMotorNP.name);
-	loadConfig(true, DecMSwitchSP.name);
-	loadConfig(true, DecRampNP.name);
-}
-
 bool PimocoMount::ISNewBLOB(const char *dev, const char *name, int sizes[], int blobsizes[], char *blobs[], char *formats[], char *names[], int n) {
 	if(dev==NULL || strcmp(dev,getDeviceName()))
     	return INDI::Telescope::ISNewBLOB(dev, name, sizes, blobsizes, blobs, formats, names, n);
@@ -193,8 +193,10 @@ bool PimocoMount::ISNewBLOB(const char *dev, const char *name, int sizes[], int 
 
 bool PimocoMount::ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res) 
 {
-	if(res)
-		IUUpdateNumber(NP, values, names, n);               
+	if(res) {
+		IUUpdateNumber(NP, values, names, n);
+		saveConfig(true, NP->name);
+	}
 	NP->s=res ? IPS_OK : IPS_ALERT;
 	IDSetNumber(NP, NULL);
 	return res;
@@ -204,12 +206,20 @@ bool PimocoMount::ISNewNumber(const char *dev, const char *name, double values[]
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Telescope::ISNewNumber(dev, name, values, names, n);
 
-	int res=stepperHA.ISNewNumber(&HAMotorNP, &HARampNP, name, values, names, n);
-	if(res>=0)
-		return res>0;
-	res=stepperDec.ISNewNumber(&DecMotorNP, &DecRampNP, name, values, names, n);
-	if(res>=0)
-		return res>0;
+	int res;
+	if((res=stepperHA.ISNewNumber(&HAMotorNP, &HARampNP, name, values, names, n)) > 0) {
+		saveConfig(true, HAMotorNP.name);
+		saveConfig(true, HARampNP.name);
+		return true;
+	} else if(res==0)
+		return false;
+
+	if((res=stepperDec.ISNewNumber(&DecMotorNP, &DecRampNP, name, values, names, n)) > 0) {
+		saveConfig(true, DecMotorNP.name);
+		saveConfig(true, DecRampNP.name);
+		return true;
+	} else if(res==0)
+		return false;
     
 	if(!strcmp(name, SlewRatesNP.name)) {
         return ISUpdateNumber(&SlewRatesNP, values, names, n, true);		
@@ -222,12 +232,18 @@ bool PimocoMount::ISNewSwitch(const char *dev, const char *name, ISState *states
 	if(dev==NULL || strcmp(dev,getDeviceName()))
 		return INDI::Telescope::ISNewSwitch(dev, name, states, names, n);
 
-	int res=stepperHA.ISNewSwitch(&HAMSwitchSP, name, states, names, n);
-	if(res>=0)
-		return res>0;
-	res=stepperDec.ISNewSwitch(&DecMSwitchSP, name, states, names, n);
-	if(res>=0)
-		return res>0;
+	int res;
+	if((res=stepperHA.ISNewSwitch(&HAMSwitchSP, name, states, names, n)) >0) {
+		saveConfig(true, HAMSwitchSP.name);
+		return true;
+	} else if(res==0)
+		return false;
+
+	if((res=stepperDec.ISNewSwitch(&DecMSwitchSP, name, states, names, n)) >0) {
+		saveConfig(true, DecMSwitchSP.name);
+		return true;
+	} else if(res==0)
+		return false;
 
 	return INDI::Telescope::ISNewSwitch(dev, name, states, names, n);
 }
@@ -258,6 +274,8 @@ bool PimocoMount::saveConfigItems(FILE *fp){
     IUSaveConfigNumber(fp, &DecMotorNP);
     IUSaveConfigSwitch(fp, &DecMSwitchSP);
     IUSaveConfigNumber(fp, &DecRampNP);
+
+    IUSaveConfigNumber(fp, &SlewRatesNP);
 
     return true;
 }
