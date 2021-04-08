@@ -110,7 +110,7 @@ PimocoMount::PimocoMount() : stepperHA(getDeviceName()), stepperDec(getDeviceNam
             TELESCOPE_HAS_TRACK_RATE |
             //TELESCOPE_HAS_PIER_SIDE_SIMULATION |
             //TELESCOPE_CAN_TRACK_SATELLITE |
-            0, 4);
+            0, NUM_SLEW_RATES);
 
 	setTelescopeConnection(CONNECTION_NONE);
 
@@ -141,6 +141,12 @@ bool PimocoMount::initProperties() {
 	stepperDec.initProperties(DecMotorN, &DecMotorNP, DecMSwitchS, &DecMSwitchSP, DecRampN, &DecRampNP, 
 							  "DEC_MOTOR", "Motor", "DEC_MSWITCH", "Switches", "DEC_RAMP", "Ramp", DEC_TAB);
 
+	IUFillNumber(&SlewRatesN[0], SlewRateS[0].name, SlewRateS[0].label, "%.1f", 0, 1600, 16, 0.5);
+	IUFillNumber(&SlewRatesN[1], SlewRateS[1].name, SlewRateS[1].label, "%.1f", 0, 1600, 16, 16);
+	IUFillNumber(&SlewRatesN[2], SlewRateS[2].name, SlewRateS[2].label, "%.1f", 0, 1600, 16, 250);
+	IUFillNumber(&SlewRatesN[3], SlewRateS[3].name, SlewRateS[3].label, "%.1f", 0, 1600, 16, 1000);
+	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
+
     addDebugControl();
     return true;
 }
@@ -155,9 +161,9 @@ bool PimocoMount::updateProperties() {
 		return false;
 
 	if(isConnected()) {
-		// ...
+	    defineProperty(&SlewRatesNP);
 	} else {
-		// ...
+	    deleteProperty(SlewRatesNP.name);
 	}
 
 	return true;
@@ -205,6 +211,10 @@ bool PimocoMount::ISNewNumber(const char *dev, const char *name, double values[]
 	if(res>=0)
 		return res>0;
     
+	if(!strcmp(name, SlewRatesNP.name)) {
+        return ISUpdateNumber(&SlewRatesNP, values, names, n, true);		
+	}
+
 	return INDI::Telescope::ISNewNumber(dev, name, values, names, n);
 }
 
@@ -296,7 +306,7 @@ void PimocoMount::TimerHit() {
 	ReadScopeStatus();
 	
 	// Workaround: increase polling frequency to 20/s while slewing, to allow fast switch back to tracking 
-	uint32_t pollingPeriod= (TrackState==SCOPE_SLEWING) ? 50 : getCurrentPollingPeriod();
+	uint32_t pollingPeriod= ((TrackState==SCOPE_SLEWING) && wasTrackingBeforeGoto) ? 50 : getCurrentPollingPeriod();
     SetTimer(pollingPeriod);
 }
 
@@ -306,6 +316,10 @@ bool PimocoMount::ReadScopeStatus() {
 	double localHaHours, decDegrees;
 	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
 		return false;
+
+	// update pier side based on hour angle (basic approach) 
+	//auto pierSide=(localHaHours<0) ? PIER_WEST : PIER_EAST;
+	//setPierSide(pierSide);
 
  	// calculate RA and Dec
    	double last=getLocalSiderealTime();
@@ -463,6 +477,47 @@ bool PimocoMount::SetTrackRate(double raRate, double deRate) {
 }
 
 
+bool PimocoMount::MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) {
+	double xSidereal=0;
+	if(command==MOTION_START) {
+		xSidereal=SlewRatesN[IUFindOnSwitchIndex(&SlewRateSP)].value;
+		if(dir==DIRECTION_SOUTH)  // DIRECTION_NORTH is positive on the Dec axis
+			xSidereal=-xSidereal;
+	}
+	double arcsecPerSec=xSidereal * trackRates[0];
+
+	LOGF_INFO("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "north" : "south"), abs(xSidereal), abs(arcsecPerSec));
+	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec)) {
+		LOG_ERROR("MoveNS");
+		return false;
+	}
+	return true;
+}
+
+
+bool PimocoMount::MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) {
+	double xSidereal=0;
+	if(command==MOTION_START) {
+		xSidereal=SlewRatesN[IUFindOnSwitchIndex(&SlewRateSP)].value;
+		if(dir==DIRECTION_EAST)
+			xSidereal=-xSidereal;  // DIRECTION_WEST for RA is positive on the HA axis
+	}
+	double arcsecPerSec=xSidereal * trackRates[0];
+
+	LOGF_INFO("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "west" : "east"), abs(xSidereal), abs(arcsecPerSec));
+	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec)) {
+		LOG_ERROR("MoveWE");
+		return false;
+	}
+	return true;
+}
+
+
+bool PimocoMount::SetSlewRate(int index) {
+	return true;
+}
+
+
 bool PimocoMount::Sync(double ra, double dec) {
 	double last=getLocalSiderealTime();
    	double ha  =rangeHA(last - ra); 
@@ -500,6 +555,9 @@ bool PimocoMount::Goto(double ra, double dec) {
  		wasTrackingBeforeGoto=false;
  	else
  		; // don't touch
+
+    if(wasTrackingBeforeGoto)
+		SetTimer(50);  // Workaround: increase polling frequency to 20/s so we can reactivate tracking fast enough
 
     TrackState = SCOPE_SLEWING;
   	return true;

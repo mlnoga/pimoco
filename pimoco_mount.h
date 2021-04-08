@@ -63,6 +63,10 @@ protected:
     virtual bool SetTrackMode(uint8_t mode) override;
     virtual bool SetTrackRate(double raRate, double deRate) override;
 
+    virtual bool MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) override;
+    virtual bool MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) override;
+    virtual bool SetSlewRate(int index) override;
+
     virtual bool Sync(double ra, double dec) override;
     virtual bool Goto(double ra, double dec) override;
 
@@ -130,6 +134,10 @@ protected:
     double parkPositionHA=0, parkPositionDec=0;
 
 
+    enum {
+        NUM_SLEW_RATES = 4
+    } SlewRatesType;
+
     // UI controls
     //
 
@@ -150,6 +158,9 @@ protected:
     
     INumber DecRampN[9]={};
     INumberVectorProperty DecRampNP;
+
+    INumber SlewRatesN[NUM_SLEW_RATES]={};
+    INumberVectorProperty SlewRatesNP;
 
 public:
     // Names of the mount configuration tabs
