@@ -53,9 +53,9 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 | N.c.                         | GPIO  3 I2C1 SCL    |     5|  6| Ground              | TMC5160 devices 0,1,2 GND   |
 | TMC5160 devices 0,1,2 CLK16  | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | N.c.                        |
 | N.c.                         | Ground              |     9| 10| GPIO 15 Uart0 RX    | N.c.                        |
-| TMC5160 device  1 CSN        | GPIO 17 SPI1 CE1    |    11| 12| GPIO 18 SPI1 CE0    | TMC5160 device  0 CSN       |
-| N.c.                         | GPIO 27             |    13| 14| Ground              | N.c.                        |
-| N.c.                         | GPIO 22             |    15| 16| GPIO 23             | N.c.                        |
+| TMC5160 device 1 CSN         | GPIO 17 SPI1 CE1    |    11| 12| GPIO 18 SPI1 CE0    | TMC5160 device 0 CSN        |
+| TMC5160 device 0 DIAG0       | GPIO 27             |    13| 14| Ground              | N.c.                        |
+| TMC5160 device 1 DIAG0       | GPIO 22             |    15| 16| GPIO 23             | TMC5160 device 2 DIAG0      |
 | N.c.                         | 3v3 Power           |    17| 18| GPIO 24             | N.c.                        |
 | N.c.                         | GPIO 10 SPI0 MOSI   |    19| 20| Ground              | N.c.                        |
 | N.c.                         | GPIO  9 SPI0 MISO   |    21| 22| GPIO 25             | N.c.                        |
