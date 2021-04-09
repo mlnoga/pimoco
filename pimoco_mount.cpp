@@ -92,8 +92,8 @@ void ISSnoopDevice(XMLEle *root) {
 // Public class members
 //
 
-PimocoMount::PimocoMount() : stepperHA(getDeviceName()), stepperDec(getDeviceName()),
-    spiDeviceFilenameHA("/dev/spidev1.1"), spiDeviceFilenameDec("/dev/spidev1.2") {
+PimocoMount::PimocoMount() : stepperHA(getDeviceName(), HA_DIAG0_PIN), stepperDec(getDeviceName(), DEC_DIAG0_PIN),
+    spiDeviceFilenameHA("/dev/spidev1.0"), spiDeviceFilenameDec("/dev/spidev1.1") {
 	setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
 
 	SetTelescopeCapability(

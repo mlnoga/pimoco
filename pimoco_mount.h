@@ -102,6 +102,12 @@ protected:
     // Enables tracking on Dec axis only. For partial resumption of tracking once Dec slew has reached its target
     bool SetTrackEnabledDec();
 
+    // Physical pin numbers on Raspberry Pi connector for stepper DIAG0 lines 
+    enum {
+        HA_DIAG0_PIN = 13,
+        DEC_DIAG0_PIN = 15,
+    };
+
 	Stepper stepperHA;
     Stepper stepperDec;
 
