@@ -68,6 +68,8 @@ protected:
 
     const char *spiDeviceFilename;
 
+    enum { FOCUSER_DIAG0_PIN = 16 };
+
     // UI controls
     //
 
