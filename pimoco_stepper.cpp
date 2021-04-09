@@ -40,7 +40,8 @@ const double   Stepper::defaultStepsPerRev =400;
 const double   Stepper::defaultGearRatio   =3*144;
 
 
-Stepper::Stepper(const char *theIndiDeviceName) : TMC5160(theIndiDeviceName), minPosition(defaultMinPosition), maxPosition(defaultMaxPosition),
+Stepper::Stepper(const char *theIndiDeviceName, int diag0Pin) : TMC5160(theIndiDeviceName, diag0Pin), 
+					 minPosition(defaultMinPosition), maxPosition(defaultMaxPosition),
 				     maxGoToSpeed(defaultMaxGoToSpeed), hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA),
 				     stepsPerRev(defaultStepsPerRev), gearRatio(defaultGearRatio) {
 }
