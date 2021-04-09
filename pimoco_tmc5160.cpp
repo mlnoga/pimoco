@@ -26,6 +26,7 @@
 #include <cstdio>
 #include <sys/time.h>  // for gettimeofday() etc.
 #include <libindi/indilogger.h> // for LOG_..., LOGF_... macros
+#include <wiringPi.h> // for GPIO etc
 
 #include "pimoco_tmc5160.h"
 
@@ -172,7 +173,136 @@ const char *TMC5160::statusFlagNames[]={
 		"STOP_R",            // Bit 7
 };
 
-TMC5160::TMC5160(const char *theIndiDeviceName) : SPI(theIndiDeviceName), deviceStatus((enum TMCStatusFlags) 0) {
+bool TMC5160::isGPIOInitialized = false;
+
+void (*TMC5160::isrsByPin[TMC5160::RPI_PHYS_PIN_MAX+1])(void)={
+	NULL,
+	&TMC5160::isr01,
+	&TMC5160::isr02,
+	&TMC5160::isr03,
+	&TMC5160::isr04,
+	&TMC5160::isr05,
+	&TMC5160::isr06,
+	&TMC5160::isr07,
+	&TMC5160::isr08,
+	&TMC5160::isr09,
+	&TMC5160::isr10,
+	&TMC5160::isr11,
+	&TMC5160::isr12,
+	&TMC5160::isr13,
+	&TMC5160::isr14,
+	&TMC5160::isr15,
+	&TMC5160::isr16,
+	&TMC5160::isr17,
+	&TMC5160::isr18,
+	&TMC5160::isr19,
+	&TMC5160::isr20,
+	&TMC5160::isr21,
+	&TMC5160::isr22,
+	&TMC5160::isr23,
+	&TMC5160::isr24,
+	&TMC5160::isr25,
+	&TMC5160::isr26,
+	&TMC5160::isr27,
+	&TMC5160::isr28,
+	&TMC5160::isr29,
+	&TMC5160::isr30,
+	&TMC5160::isr31,
+	&TMC5160::isr32,
+	&TMC5160::isr33,
+	&TMC5160::isr34,
+	&TMC5160::isr35,
+	&TMC5160::isr36,
+	&TMC5160::isr37,
+	&TMC5160::isr38,
+	&TMC5160::isr39,
+	&TMC5160::isr40,
+};
+
+TMC5160 *TMC5160::objectsByPin[TMC5160::RPI_PHYS_PIN_MAX+1];
+
+
+void TMC5160::initGPIO() {
+	if(!isGPIOInitialized) {
+		wiringPiSetupPhys();
+		isGPIOInitialized=true;
+	}
+}
+
+void TMC5160::isr01() { objectsByPin[ 1]->isr(); }
+void TMC5160::isr02() { objectsByPin[ 2]->isr(); }
+void TMC5160::isr03() { objectsByPin[ 3]->isr(); }
+void TMC5160::isr04() { objectsByPin[ 4]->isr(); }
+void TMC5160::isr05() { objectsByPin[ 5]->isr(); }
+void TMC5160::isr06() { objectsByPin[ 6]->isr(); }
+void TMC5160::isr07() { objectsByPin[ 7]->isr(); }
+void TMC5160::isr08() { objectsByPin[ 8]->isr(); }
+void TMC5160::isr09() { objectsByPin[ 9]->isr(); }
+void TMC5160::isr10() { objectsByPin[10]->isr(); }
+void TMC5160::isr11() { objectsByPin[11]->isr(); }
+void TMC5160::isr12() { objectsByPin[12]->isr(); }
+void TMC5160::isr13() { objectsByPin[13]->isr(); }
+void TMC5160::isr14() { objectsByPin[14]->isr(); }
+void TMC5160::isr15() { objectsByPin[15]->isr(); }
+void TMC5160::isr16() { objectsByPin[16]->isr(); }
+void TMC5160::isr17() { objectsByPin[17]->isr(); }
+void TMC5160::isr18() { objectsByPin[18]->isr(); }
+void TMC5160::isr19() { objectsByPin[19]->isr(); }
+void TMC5160::isr20() { objectsByPin[20]->isr(); }
+void TMC5160::isr21() { objectsByPin[21]->isr(); }
+void TMC5160::isr22() { objectsByPin[22]->isr(); }
+void TMC5160::isr23() { objectsByPin[23]->isr(); }
+void TMC5160::isr24() { objectsByPin[24]->isr(); }
+void TMC5160::isr25() { objectsByPin[25]->isr(); }
+void TMC5160::isr26() { objectsByPin[26]->isr(); }
+void TMC5160::isr27() { objectsByPin[27]->isr(); }
+void TMC5160::isr28() { objectsByPin[28]->isr(); }
+void TMC5160::isr29() { objectsByPin[29]->isr(); }
+void TMC5160::isr30() { objectsByPin[30]->isr(); }
+void TMC5160::isr31() { objectsByPin[31]->isr(); }
+void TMC5160::isr32() { objectsByPin[32]->isr(); }
+void TMC5160::isr33() { objectsByPin[33]->isr(); }
+void TMC5160::isr34() { objectsByPin[34]->isr(); }
+void TMC5160::isr35() { objectsByPin[35]->isr(); }
+void TMC5160::isr36() { objectsByPin[36]->isr(); }
+void TMC5160::isr37() { objectsByPin[37]->isr(); }
+void TMC5160::isr38() { objectsByPin[38]->isr(); }
+void TMC5160::isr39() { objectsByPin[39]->isr(); }
+void TMC5160::isr40() { objectsByPin[40]->isr(); }
+
+
+void TMC5160::isr() {
+	// retrieve interrupt event flags
+	uint32_t rampStat;
+	if(!getRegister(TMCR_RAMP_STAT, &rampStat)) {
+		LOG_ERROR("Error reading ramp status register from interrupt");
+		return;
+	}
+	// check which event caused the interrupt
+	if(rampStat && (1ul<<7)) {        // event_pos_reached
+		LOG_INFO("Position reached");	
+	} else if(rampStat && (1ul<<6)) { // event_stop_sg
+		LOG_INFO("Stall detected");	
+	}
+	// clear the flags by writing all ones
+	if(!setRegister(TMCR_RAMP_STAT, (1ul<<14)-1)) { 
+		LOG_ERROR("Error clearing ramp status register from interrupt");
+		return;
+	}
+}
+
+
+TMC5160::TMC5160(const char *theIndiDeviceName, int diag0Pin) : SPI(theIndiDeviceName), deviceStatus((enum TMCStatusFlags) 0) {
+	initGPIO();
+
+	// setup ISR
+	if(diag0Pin>0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
+		objectsByPin[diag0Pin]=this;
+		pinMode(diag0Pin, INPUT);
+		pullUpDnControl(diag0Pin, PUD_UP);    
+		wiringPiISR(diag0Pin, INT_EDGE_FALLING, isrsByPin[diag0Pin]);
+	}
+
     for(int i=0; i<(int) TMCR_NUM_REGISTERS; i++)
     	cachedRegisterValues[i]=0;
 }

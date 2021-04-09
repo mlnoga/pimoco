@@ -140,8 +140,8 @@ public:
 		TMC_STOP_R           = ((uint8_t)1)<<7
 	};
 
-	// Creates a TMC5160 stepper connected via SPI
-	TMC5160(const char *theIndiDeviceName);
+	// Creates a TMC5160 stepper connected via SPI, with optional physical connector pin for diag0 interrupt (negative=unused)
+	TMC5160(const char *theIndiDeviceName, int diag0Pin=-1);
 
 	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
 	~TMC5160() { }
@@ -446,7 +446,70 @@ protected:
 	// Prints a register get/set command. Returns number of bytes printed, excluding trailing zero
 	static int printRegister(char *buffer, int bufsize, uint8_t address, uint32_t value, uint8_t status, const char *prefix, const char *suffix);
 
+	// Initializes GPIO to use physical pin numbers on the 40-pin connector. Multiple calls have no additional effect
+	static void initGPIO();
 
+public:
+	static void isr01(); // ISR for physical Diag0 pin number 01
+	static void isr02(); // ISR for physical Diag0 pin number 02
+	static void isr03(); // ISR for physical Diag0 pin number 03
+	static void isr04(); // ISR for physical Diag0 pin number 04
+	static void isr05(); // ISR for physical Diag0 pin number 05
+	static void isr06(); // ISR for physical Diag0 pin number 06
+	static void isr07(); // ISR for physical Diag0 pin number 07
+	static void isr08(); // ISR for physical Diag0 pin number 08
+	static void isr09(); // ISR for physical Diag0 pin number 09
+	static void isr10(); // ISR for physical Diag0 pin number 10
+	static void isr11(); // ISR for physical Diag0 pin number 11
+	static void isr12(); // ISR for physical Diag0 pin number 12
+	static void isr13(); // ISR for physical Diag0 pin number 13
+	static void isr14(); // ISR for physical Diag0 pin number 14
+	static void isr15(); // ISR for physical Diag0 pin number 15
+	static void isr16(); // ISR for physical Diag0 pin number 16
+	static void isr17(); // ISR for physical Diag0 pin number 17
+	static void isr18(); // ISR for physical Diag0 pin number 18
+	static void isr19(); // ISR for physical Diag0 pin number 19
+	static void isr20(); // ISR for physical Diag0 pin number 20
+	static void isr21(); // ISR for physical Diag0 pin number 21
+	static void isr22(); // ISR for physical Diag0 pin number 22
+	static void isr23(); // ISR for physical Diag0 pin number 23
+	static void isr24(); // ISR for physical Diag0 pin number 24
+	static void isr25(); // ISR for physical Diag0 pin number 25
+	static void isr26(); // ISR for physical Diag0 pin number 26
+	static void isr27(); // ISR for physical Diag0 pin number 27
+	static void isr28(); // ISR for physical Diag0 pin number 28
+	static void isr29(); // ISR for physical Diag0 pin number 29
+	static void isr30(); // ISR for physical Diag0 pin number 30
+	static void isr31(); // ISR for physical Diag0 pin number 31
+	static void isr32(); // ISR for physical Diag0 pin number 32
+	static void isr33(); // ISR for physical Diag0 pin number 33
+	static void isr34(); // ISR for physical Diag0 pin number 34
+	static void isr35(); // ISR for physical Diag0 pin number 35
+	static void isr36(); // ISR for physical Diag0 pin number 36
+	static void isr37(); // ISR for physical Diag0 pin number 37
+	static void isr38(); // ISR for physical Diag0 pin number 38
+	static void isr39(); // ISR for physical Diag0 pin number 39
+	static void isr40(); // ISR for physical Diag0 pin number 40
+
+protected:
+	// ISR for this object, reacting to Diag0 output
+	void isr(); 
+
+	// True if GPIO has been initialized
+	static bool isGPIOInitialized;
+
+	// Array of objects indexed by physical Diag0 pin number on the Raspberry Pi connector [1..RPI_PHYS_PIN_MAX]
+	static TMC5160 *objectsByPin[];
+
+	// Array of static interrupt service routines by physical Diag0 pin number on the on the Raspberry Pi connector [1..RPI_PHYS_PIN_MAX]
+	static void (*isrsByPin[])(void);
+
+public:
+	enum {
+		RPI_PHYS_PIN_MAX = 40
+	};
+
+protected:
 	// Device status returned by the last SPI datagram
 	TMCStatusFlags deviceStatus;
 
