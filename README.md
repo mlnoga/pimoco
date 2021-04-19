@@ -41,6 +41,7 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 | SB540          | SB540FSCT-ND | DIODE SCHOTTKY 40V 5A DO201AD   |        1 |
 | PPTC202LFBN-RC | S6104-ND     | CONN HDR 40POS 0.1 TIN PCB      |        1 | 
 
+Optional Ublox Neo6M GPS breakout board, e.g. the Chinese GY-GPS6MV2.
 
 ## Hardware setup
 
@@ -48,11 +49,11 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 
 | Device connection            | Function            |Header|Pin| Function            | Device connection           |
 |-----------------------------:|--------------------:|-----:|--:|---------------------|-----------------------------|
-| TMC5160 devices 0,1,2 VCC_IO | 3.3v Power          |     1|  2| 5v Power            | N.c.                        |
+| TMC5160 dev 0,1,2 & GPS VCC_IO | 3.3v Power          |     1|  2| 5v Power            | N.c.                        |
 | N.c.                         | GPIO  2 I2C1 SDA    |     3|  4| 5v Power            | N.c.                        |
-| N.c.                         | GPIO  3 I2C1 SCL    |     5|  6| Ground              | TMC5160 devices 0,1,2 GND   |
-| TMC5160 devices 0,1,2 CLK16  | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | N.c.                        |
-| N.c.                         | Ground              |     9| 10| GPIO 15 Uart0 RX    | N.c.                        |
+| N.c.                         | GPIO  3 I2C1 SCL    |     5|  6| Ground              | TMC5160 devices 0,1,2 & GPS GND   |
+| TMC5160 devices 0,1,2 CLK16  | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | GPS Rx                      |
+| N.c.                         | Ground              |     9| 10| GPIO 15 Uart0 RX    | GPX Tx                      |
 | TMC5160 device 1 CSN         | GPIO 17 SPI1 CE1    |    11| 12| GPIO 18 SPI1 CE0    | TMC5160 device 0 CSN        |
 | TMC5160 device 0 DIAG0       | GPIO 27             |    13| 14| Ground              | N.c.                        |
 | TMC5160 device 1 DIAG0       | GPIO 22             |    15| 16| GPIO 23             | TMC5160 device 2 DIAG0      |
@@ -99,4 +100,12 @@ Run standalone test with `make test` or `./test_stepper`.
 
 Run an Indi server testbed with `make serve` or `indiserver -v ./indi_pimoco_focuser ./indi_pimoco_mount`.
 
-Install with `make install` to use in KStars/EKOS. 
+
+## Software setup for optional GPS
+
+For GPS, first get the serial port working. Open `sudo raspi-config`, go to the interfaces section, and enable the serial port but disable the serial console. Reboot. Set the speed with `stty -F /dev/ttyS0 9600`. Verify you are getting some data with `minicom -b -D /dev/ttyS0`.
+
+Then stop virtualgps, which comes preinstalled on Astroberry. `sudo systemctl disable virtualgps` and `sudo systemctl stop virtualgps`.
+
+Finally get the gps daemon in shape. On Astroberry, the programs are preinstalled. If they are missing, do `sudo apt-get install gpsd gpsd-clients`. Edit `/etc/default/gpsd` and set `DEVICES="/dev/ttyS0". Restart gpsd with `sudo /etc/init.d/gpsd restart`. Check everything works with `cgps`. 
+
