@@ -45,6 +45,8 @@ Optional Ublox Neo6M GPS breakout board, e.g. the Chinese GY-GPS6MV2.
 
 ## Hardware setup
 
+![First stripboard](hardware/first-stripboard.jpg)
+
 ![First breadboard](hardware/first-breadboard.jpg)
 
 | Device connection            | Function            |Header|Pin| Function            | Device connection           |
@@ -108,4 +110,3 @@ For GPS, first get the serial port working. Open `sudo raspi-config`, go to the 
 Then stop virtualgps, which comes preinstalled on Astroberry. `sudo systemctl disable virtualgps` and `sudo systemctl stop virtualgps`.
 
 Finally get the gps daemon in shape. On Astroberry, the programs are preinstalled. If they are missing, do `sudo apt-get install gpsd gpsd-clients`. Edit `/etc/default/gpsd` and set `DEVICES="/dev/ttyS0". Restart gpsd with `sudo /etc/init.d/gpsd restart`. Check everything works with `cgps`. 
-
