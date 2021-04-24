@@ -89,7 +89,9 @@ dtoverlay=spi1-3cs
 
 Install the Indi driver development environment and Nova library with `sudo apt-get install libindi-dev libnova-dev`.
 
-Build with `make`.
+The WiringPi binaries in Raspbian currently don't support the Pi4B. To remediate this, `git clone git@github.com:WiringPi/WiringPi.git && cd WiringPi && ./build`. This will prompt for your sudo password for installing the rebuilt binaries.
+
+Clone this repo and build with `make`
 
 Run standalone test with `make test` or `./test_stepper`.
 
