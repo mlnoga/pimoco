@@ -78,24 +78,24 @@ public:
 	// Gets the target position for gotos. Returns true on success, else false
 	bool getTargetPosition(int32_t *result) { return getRegister(TMCR_XTARGET, (uint32_t*) result); }
 
-	// Sets the target position, initiating a non-blocking go-to. If restoreSpeed is true, restores the given speed once position is reached.
+	// Sets the target position, initiating a non-blocking go-to. If restoreSpeed is nonzero, restores the given speed once position is reached.
 	// Returns immediately. Returns true on success, else false
-	bool setTargetPosition(int32_t value, bool restoreSpeed=false, int32_t speed=0);
+	bool setTargetPosition(int32_t value, int32_t restoreSpeed=0);
 
 	// Sets the target position and performs a blocking go-to with optional timeout (0=no timeout). Returns when position reached, or timeout occurs. Returns true on success, else false
 	bool setTargetPositionBlocking(int32_t value, uint32_t timeoutMs=0);
 
 	// Sets the target position in radians, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPositionRadians(double value, bool restoreSpeed=false, int32_t speed=0) { return setTargetPositionInUnits(value, 2.0*M_PI, restoreSpeed, speed); }
+	bool setTargetPositionRadians(double value, int32_t restoreSpeed=0) { return setTargetPositionInUnits(value, 2.0*M_PI, restoreSpeed); }
 
 	// Sets the target position in degrees, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPositionDegrees(double value, bool restoreSpeed=false, int32_t speed=0) { return setTargetPositionInUnits(value, 360.0, restoreSpeed, speed); }
+	bool setTargetPositionDegrees(double value, int32_t restoreSpeed=0) { return setTargetPositionInUnits(value, 360.0, restoreSpeed); }
 
 	// Sets the target position in hours, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPositionHours(double value, bool restoreSpeed=false, int32_t speed=0) { return setTargetPositionInUnits(value, 24.0, restoreSpeed, speed); }
+	bool setTargetPositionHours(double value, int32_t restoreSpeed=0) { return setTargetPositionInUnits(value, 24.0, restoreSpeed); }
 
 	// Syncs current position in given units for full circle
-	bool setTargetPositionInUnits(double value, double full, bool restoreSpeed=false, int32_t speed=0);
+	bool setTargetPositionInUnits(double value, double full, int32_t restoreSpeed=0);
 
 	// Converts radians to native steps
 	int32_t radiansToNative(double value) {	return unitsToNative(value, 2*M_PI); }

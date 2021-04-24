@@ -282,7 +282,7 @@ bool Stepper::syncPositionInUnits(double value, double full) {
 }
 
 
-bool Stepper::setTargetPosition(int32_t value, bool restoreSpeed, int32_t speed) {
+bool Stepper::setTargetPosition(int32_t value, int32_t restoreSpeed) {
 	if(value<minPosition || value>maxPosition) {
 		LOGF_ERROR("Unable to set target position %'+d outside defined limits [%'+d, %'+d]", value, minPosition, maxPosition);
 		return false;
@@ -291,9 +291,8 @@ bool Stepper::setTargetPosition(int32_t value, bool restoreSpeed, int32_t speed)
 	if(debugLevel>=TMC_DEBUG_DEBUG)
 		LOGF_DEBUG("Setting target position to %'+d", value);
 
-	// FIXME: these three have a big fat race condition if Goto is already active
-	setDoRestoreSpeed(restoreSpeed);
-	setSpeedToRestore(speed);
+	// FIXME: race condition if Goto is already active
+	setSpeedToRestore(restoreSpeed);
 	hasReachedTarget=false; 
 
 	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
@@ -302,9 +301,9 @@ bool Stepper::setTargetPosition(int32_t value, bool restoreSpeed, int32_t speed)
 }
 
 
-bool Stepper::setTargetPositionInUnits(double value, double full, bool restoreSpeed, int32_t speed) {
+bool Stepper::setTargetPositionInUnits(double value, double full, int32_t restoreSpeed) {
 	int32_t stepsValue=unitsToNative(value, full);
-	return setTargetPosition(stepsValue, restoreSpeed, speed);
+	return setTargetPosition(stepsValue, restoreSpeed);
 }
 
 

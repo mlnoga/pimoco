@@ -281,7 +281,7 @@ void TMC5160::isr() {
 	// check which event caused the interrupt
 	if(rampStat && (1ul<<7)) {        // event_pos_reached
 		hasReachedTarget=true;
-		if(doRestoreSpeed)
+		if(speedToRestore!=0)
 			if(!setTargetSpeed(speedToRestore))
 				LOGF_ERROR("Position reached, unable to restore speed %d", speedToRestore);
 			else

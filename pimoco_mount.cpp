@@ -356,7 +356,7 @@ bool PimocoMount::ReadScopeStatus() {
 	        	// while HA axis is moving, reissue HA goto command updated with current time
 				double last=getLocalSiderealTime();
 	   			double ha  =rangeHA(last - gotoTargetRA); 
-				if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeGoto, stepperHA.arcsecPerSecToNative(getTrackRateRA()) )) {
+				if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeGoto ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0 )) {
 					LOG_ERROR("Updating goto HA target");
 					return false;
 				}
@@ -547,8 +547,8 @@ bool PimocoMount::Goto(double ra, double dec) {
  	else
  		; // don't touch
 
-	if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeGoto, stepperHA.arcsecPerSecToNative(getTrackRateRA()) ) || 
-	   !stepperDec.setTargetPositionDegrees(dec, wasTrackingBeforeGoto, stepperDec.arcsecPerSecToNative(getTrackRateDec()) ) ) {
+	if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeGoto ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0) || 
+	   !stepperDec.setTargetPositionDegrees(dec, wasTrackingBeforeGoto ? stepperDec.arcsecPerSecToNative(getTrackRateDec()) : 0) ) {
 		LOG_ERROR("Goto");
 		return false;
 	}
@@ -589,7 +589,7 @@ bool PimocoMount::SetDefaultPark() {
 
 bool PimocoMount::Park() {
    	LOGF_INFO("Parking at HA %f Dec %f", parkPositionHA, parkPositionDec);
-	if(!stepperHA.setTargetPositionHours(parkPositionHA, true, 0) || !stepperDec.setTargetPositionDegrees(parkPositionDec, true, 0) ) {
+	if(!stepperHA.setTargetPositionHours(parkPositionHA) || !stepperDec.setTargetPositionDegrees(parkPositionDec) ) {
 		LOG_ERROR("Parking");
 		return false;
 	}

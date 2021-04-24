@@ -162,16 +162,10 @@ public:
 	// Sets the target speed to the given number of microsteps per second. Returns immediately. Returns true on success, else false
 	bool setTargetSpeed(int32_t value);
 
-	// Gets flag if speed is restored on interrupt when target position is reached. Always succeeds and returns true 
-	bool getDoRestoreSpeed(bool *result) { *result=doRestoreSpeed; return true; }
-
-	// Sets flag if speed is restored on interrupt when target position is reached. Always succeeds and returns true 
-	bool setDoRestoreSpeed(bool value) { doRestoreSpeed=value; return true; }
-
-	// Gets the speed to restore after target position was reached. Always succeeds and returns true 
+	// Gets the speed to restore after target position was reached. 0 means no action. Always succeeds and returns true 
 	bool getSpeedToRestore(int32_t *result) { *result=speedToRestore; return true; }
 
-	// Sets the speed to restore after target position was reached. Always succeeds and returns true 
+	// Sets the speed to restore after target position was reached. 0 means no action. Always succeeds and returns true 
 	bool setSpeedToRestore(int32_t value) { speedToRestore=value; return true; }
 
 	// Returns true if the stepper has reached its target position
@@ -521,9 +515,6 @@ protected:
 
 	// Flag: has the motor reached the target position? Updated in ISR
 	volatile bool hasReachedTarget=false;
-
-	// Flag if ISR should restore a constant speed when the motor has reached the target position
-	bool doRestoreSpeed=true;
 
 	// The speed to restore in the ISR once the motor has reached the target position
 	int32_t speedToRestore=0;
