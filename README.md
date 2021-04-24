@@ -40,6 +40,7 @@ Apart from a Raspberry Pi 4 (get the 8 GB model just in case you want to run liv
 | 100SP1T2B4M6QE | EG2362-ND    | SWITCH TOGGLE SPDT 5A 120V      |        1 |
 | SB540          | SB540FSCT-ND | DIODE SCHOTTKY 40V 5A DO201AD   |        1 |
 | PPTC202LFBN-RC | S6104-ND     | CONN HDR 40POS 0.1 TIN PCB      |        1 | 
+|                |              | Crystal oscillator 10 MHz       |        1 |
 
 Optional Ublox Neo6M GPS breakout board, e.g. the Chinese GY-GPS6MV2.
 
@@ -51,10 +52,10 @@ Optional Ublox Neo6M GPS breakout board, e.g. the Chinese GY-GPS6MV2.
 
 | Device connection            | Function            |Header|Pin| Function            | Device connection           |
 |-----------------------------:|--------------------:|-----:|--:|---------------------|-----------------------------|
-| TMC5160 dev 0,1,2 & GPS VCC_IO | 3.3v Power          |     1|  2| 5v Power            | N.c.                        |
+| TMC5160 dev 0,1,2, Osc VCC & GPS VCC_IO | 3.3v Power          |     1|  2| 5v Power            | N.c.                        |
 | N.c.                         | GPIO  2 I2C1 SDA    |     3|  4| 5v Power            | N.c.                        |
-| N.c.                         | GPIO  3 I2C1 SCL    |     5|  6| Ground              | TMC5160 devices 0,1,2 & GPS GND   |
-| TMC5160 devices 0,1,2 CLK16  | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | GPS Rx                      |
+| N.c.                         | GPIO  3 I2C1 SCL    |     5|  6| Ground              | TMC5160 devices 0,1,2, Osc GND & GPS GND   |
+| N.c.                         | GPCLK0              |     7|  8| GPIO 14 UART0 TX    | GPS Rx                      |
 | N.c.                         | Ground              |     9| 10| GPIO 15 Uart0 RX    | GPX Tx                      |
 | TMC5160 device 1 CSN         | GPIO 17 SPI1 CE1    |    11| 12| GPIO 18 SPI1 CE0    | TMC5160 device 0 CSN        |
 | TMC5160 device 0 DIAG0       | GPIO 27             |    13| 14| Ground              | N.c.                        |
@@ -74,6 +75,7 @@ Optional Ublox Neo6M GPS breakout board, e.g. the Chinese GY-GPS6MV2.
 
 N.c. = Not connected
 
+Connect the crystal oscillator output to TMC5160 device 0,1,2 CLK16.
 
 ## Software setup
 
@@ -83,15 +85,6 @@ Edit the boot configuration with `sudo nano /boot/config.txt` and add the follow
 # Enable three SPI channels on SPI1 with standard pins for the
 # pimoco telescope mount and focuser controller
 dtoverlay=spi1-3cs
-```
-
-Edit the runlevel configuration with `sudo nano /etc/rc.local` and add the following lines just before the final `exit 0` line:
-
-```
-# Output a 9.6 MHz clock on physical pin 7 (GPCLK0) for the 
-# pimoco telescope mount and focuser controller
-gpio -1 mode 7 alt0
-gpio -1 clock 7 9600000
 ```
 
 Install the Indi driver development environment and Nova library with `sudo apt-get install libindi-dev libnova-dev`.
@@ -109,4 +102,4 @@ For GPS, first get the serial port working. Open `sudo raspi-config`, go to the 
 
 Then stop virtualgps, which comes preinstalled on Astroberry. `sudo systemctl disable virtualgps` and `sudo systemctl stop virtualgps`.
 
-Finally get the gps daemon in shape. On Astroberry, the programs are preinstalled. If they are missing, do `sudo apt-get install gpsd gpsd-clients`. Edit `/etc/default/gpsd` and set `DEVICES="/dev/ttyS0". Restart gpsd with `sudo /etc/init.d/gpsd restart`. Check everything works with `cgps`. 
+Finally get the gps daemon in shape. On Astroberry, the programs are preinstalled. If they are missing, do `sudo apt-get install gpsd gpsd-clients`. Edit `/etc/default/gpsd` and set `DEVICES="/dev/ttyS0`. Restart gpsd with `sudo /etc/init.d/gpsd restart`. Check everything works with `cgps`. 
