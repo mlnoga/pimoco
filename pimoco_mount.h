@@ -129,9 +129,6 @@ protected:
     // Target position for gotos. For periodic refresh of the HA-based actual hardware gotos as time progresses
     double  gotoTargetRA=0, gotoTargetDec=0;
 
-    // Indicates if given axis has reached its goto target
-    bool    gotoReachedRA=false, gotoReachedDec=false;
-
     // Stores if the scope was tracking before a goto was initiated. Required to work around INDI bug 
     bool    wasTrackingBeforeGoto=false;
 

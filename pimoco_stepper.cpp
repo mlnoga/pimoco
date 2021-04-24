@@ -206,22 +206,18 @@ bool Stepper::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutM
 }
 
 
-bool Stepper::setTargetSpeed(int32_t value) {
+bool Stepper::setTargetVelocityArcsecPerSec(double arcsecPerSec) {
+	int32_t ustepsPerTRounded=arcsecPerSecToNative(arcsecPerSec);
+
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting target speed to %'+d", value);
+		LOGF_DEBUG("Setting target velocity to %f arcsec/sec i.e. %d usteps/stepper_t", arcsecPerSec, ustepsPerTRounded);
 
-	// FIXME: min/max position limits are not checked when setting a speed.
-	// Would need a background timer with e.g. speed-based 1s lookahead.
-
-	return setRegister(TMCR_RAMPMODE, value>=0 ? 1 : 2) &&    // select velocity mode and sign
-	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
+	return setTargetSpeed(ustepsPerTRounded);
 }
 
-
-bool Stepper::setTargetVelocityArcsecPerSec(double arcsecPerSec) {
+int32_t Stepper::arcsecPerSecToNative(double arcsecPerSec) {
 	if(stepsPerRev==0 || gearRatio==0 || clockHz==0) {
 		LOGF_ERROR("Zero value detected: %d steps/rev %d gear ratio %d Hz clock", stepsPerRev, gearRatio, clockHz);
-		return false;
 	}
 
 	uint32_t ustepsPerRev=256*stepsPerRev*gearRatio;
@@ -233,11 +229,7 @@ bool Stepper::setTargetVelocityArcsecPerSec(double arcsecPerSec) {
 	double ustepsPerT=arcsecPerSec * ustepsPerArcsec * stepperTimeUnit;
 	int32_t ustepsPerTRounded=round(ustepsPerT);
 
-	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting target velocity to %f arcsec/sec * %f usteps/arcsec * %f s/stepper_t = %f usteps/stepper_t, rounded to %d",
-			       arcsecPerSec, ustepsPerArcsec, stepperTimeUnit, ustepsPerT, ustepsPerTRounded);
-
-	return setTargetSpeed(ustepsPerTRounded);
+	return ustepsPerTRounded;
 }
 
 
@@ -290,7 +282,7 @@ bool Stepper::syncPositionInUnits(double value, double full) {
 }
 
 
-bool Stepper::setTargetPosition(int32_t value) {
+bool Stepper::setTargetPosition(int32_t value, bool restoreSpeed, int32_t speed) {
 	if(value<minPosition || value>maxPosition) {
 		LOGF_ERROR("Unable to set target position %'+d outside defined limits [%'+d, %'+d]", value, minPosition, maxPosition);
 		return false;
@@ -299,15 +291,20 @@ bool Stepper::setTargetPosition(int32_t value) {
 	if(debugLevel>=TMC_DEBUG_DEBUG)
 		LOGF_DEBUG("Setting target position to %'+d", value);
 
+	// FIXME: these three have a big fat race condition if Goto is already active
+	setDoRestoreSpeed(restoreSpeed);
+	setSpeedToRestore(speed);
+	hasReachedTarget=false; 
+
 	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
 		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
 	       setRegister(TMCR_XTARGET, (uint32_t) value);      // set target position to initiate movement
 }
 
 
-bool Stepper::setTargetPositionInUnits(double value, double full) {
-	int32_t stepsValue=round(value * (microsteps * stepsPerRev * gearRatio) / full);
-	return setTargetPosition(stepsValue);
+bool Stepper::setTargetPositionInUnits(double value, double full, bool restoreSpeed, int32_t speed) {
+	int32_t stepsValue=unitsToNative(value, full);
+	return setTargetPosition(stepsValue, restoreSpeed, speed);
 }
 
 
@@ -329,8 +326,8 @@ bool Stepper::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
 			uint64_t elapsedMs=now.msSince(start);
 			if(debugLevel>=TMC_DEBUG_DEBUG)
 				LOGF_DEBUG("Reached target position at %'+d after %d polls in %llus %llums", value, i, elapsedMs/1000, elapsedMs%1000);
-			if(!setTargetPositionReachedEvent(1)) // clear event flag
-				return false;			
+			// if(!setTargetPositionReachedEvent(1)) // clear event flag - no longer needed, ISR does this
+			//	return false;			
 			return true;  // position reached
 		}
 

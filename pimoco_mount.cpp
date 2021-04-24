@@ -324,7 +324,7 @@ void PimocoMount::TimerHit() {
 	ReadScopeStatus();
 	
 	// Workaround: increase polling frequency to 20/s while slewing, to allow fast switch back to tracking 
-	uint32_t pollingPeriod= ((TrackState==SCOPE_SLEWING) && wasTrackingBeforeGoto) ? 50 : getCurrentPollingPeriod();
+	uint32_t pollingPeriod= ((TrackState==SCOPE_SLEWING) && wasTrackingBeforeGoto) ? 100 : getCurrentPollingPeriod();
     SetTimer(pollingPeriod);
 }
 
@@ -352,31 +352,15 @@ bool PimocoMount::ReadScopeStatus() {
         	break; // do nothing
 
         case SCOPE_SLEWING:
-        	if(!gotoReachedRA) {
-        		if(haStatus & Stepper::TMC_POSITION_REACHED) {
-        			// if RA axis has reached target, reenable partial tracking if previously active
-        			// FIXME: should really use an interrupt for this, not a timer-based action
-	        		gotoReachedRA=true;
-    	    		if(wasTrackingBeforeGoto)
-        				SetTrackEnabledRA();
-        		} else {
-		        	// while HA axis is moving, reissue HA goto command updated with current time
-					double last=getLocalSiderealTime();
-		   			double ha  =rangeHA(last - gotoTargetRA); 
-					if(!stepperHA.setTargetPositionHours(ha)) {
-						LOG_ERROR("Updating goto HA target");
-						return false;
-					}
-        		}
-        	}
-        	if(!gotoReachedDec && (decStatus & Stepper::TMC_POSITION_REACHED)) {
-        		// if Dec axis has reached target, reenable partial tracking if previously active
-    			// FIXME: should really use an interrupt for this, not a timer-based action
-        		gotoReachedDec=true;
-        		if(wasTrackingBeforeGoto)
-        			SetTrackEnabledDec();   
-        	}
-        	if(gotoReachedRA && gotoReachedDec) {
+    		if(!stepperHA.hasReachedTargetPos()) {
+	        	// while HA axis is moving, reissue HA goto command updated with current time
+				double last=getLocalSiderealTime();
+	   			double ha  =rangeHA(last - gotoTargetRA); 
+				if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeGoto, stepperHA.arcsecPerSecToNative(getTrackRateRA()) )) {
+					LOG_ERROR("Updating goto HA target");
+					return false;
+				}
+        	} else if(stepperDec.hasReachedTargetPos()) {
         		// restore tracking state visible to INDI once both axes have reached target
         		LOGF_INFO("Goto reached target position RA %f Dec %f", gotoTargetRA, gotoTargetDec);
         		TrackState=wasTrackingBeforeGoto ? SCOPE_TRACKING : SCOPE_IDLE;
@@ -556,17 +540,6 @@ bool PimocoMount::Goto(double ra, double dec) {
 
    	LOGF_INFO("Goto RA %f (HA %f) Dec %f", ra, ha, dec);
 
-	if(!stepperHA.setTargetPositionHours(ha) || !stepperDec.setTargetPositionDegrees(dec) ) {
-		LOG_ERROR("Goto");
-		return false;
-	}
-	gotoReachedRA=false;
-	gotoReachedDec=false;
-
-	// cache target ra/dec for periodic reissue of ha-based target given progressing time
-	gotoTargetRA=ra;
-	gotoTargetDec=dec;
- 
  	if(TrackState==SCOPE_TRACKING)
  		wasTrackingBeforeGoto=true;
  	else if(TrackState==SCOPE_IDLE)
@@ -574,6 +547,16 @@ bool PimocoMount::Goto(double ra, double dec) {
  	else
  		; // don't touch
 
+	if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeGoto, stepperHA.arcsecPerSecToNative(getTrackRateRA()) ) || 
+	   !stepperDec.setTargetPositionDegrees(dec, wasTrackingBeforeGoto, stepperDec.arcsecPerSecToNative(getTrackRateDec()) ) ) {
+		LOG_ERROR("Goto");
+		return false;
+	}
+
+	// cache target ra/dec for periodic reissue of ha-based target given progressing time
+	gotoTargetRA=ra;
+	gotoTargetDec=dec;
+ 
     if(wasTrackingBeforeGoto)
 		SetTimer(50);  // Workaround: increase polling frequency to 20/s so we can reactivate tracking fast enough
 
@@ -606,7 +589,7 @@ bool PimocoMount::SetDefaultPark() {
 
 bool PimocoMount::Park() {
    	LOGF_INFO("Parking at HA %f Dec %f", parkPositionHA, parkPositionDec);
-	if(!stepperHA.setTargetPositionHours(parkPositionHA) || !stepperDec.setTargetPositionDegrees(parkPositionDec) ) {
+	if(!stepperHA.setTargetPositionHours(parkPositionHA, true, 0) || !stepperDec.setTargetPositionDegrees(parkPositionDec, true, 0) ) {
 		LOG_ERROR("Parking");
 		return false;
 	}

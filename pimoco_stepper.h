@@ -38,12 +38,6 @@ public:
 
 	bool close();
 
-	// Returns the current speed in the variable pointed to by result. Returns true on success, else false	
-	bool getSpeed(int32_t *result) { return getRegister(TMCR_VACTUAL, (uint32_t*) result); }
-
-	// Sets the target speed to the given number of microsteps per second. Returns immediately. Returns true on success, else false
-	bool setTargetSpeed(int32_t value);
-
 	// Sets the target velocity in arcseconds per second of the controlled object. Returns immediately. Returns true on success, else false
 	bool setTargetVelocityArcsecPerSec(double arcsecPerSec);
 
@@ -84,23 +78,39 @@ public:
 	// Gets the target position for gotos. Returns true on success, else false
 	bool getTargetPosition(int32_t *result) { return getRegister(TMCR_XTARGET, (uint32_t*) result); }
 
-	// Sets the target position, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPosition(int32_t value);
+	// Sets the target position, initiating a non-blocking go-to. If restoreSpeed is true, restores the given speed once position is reached.
+	// Returns immediately. Returns true on success, else false
+	bool setTargetPosition(int32_t value, bool restoreSpeed=false, int32_t speed=0);
 
 	// Sets the target position and performs a blocking go-to with optional timeout (0=no timeout). Returns when position reached, or timeout occurs. Returns true on success, else false
 	bool setTargetPositionBlocking(int32_t value, uint32_t timeoutMs=0);
 
 	// Sets the target position in radians, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPositionRadians(double value) { return setTargetPositionInUnits(value, 2.0*M_PI); }
+	bool setTargetPositionRadians(double value, bool restoreSpeed=false, int32_t speed=0) { return setTargetPositionInUnits(value, 2.0*M_PI, restoreSpeed, speed); }
 
 	// Sets the target position in degrees, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPositionDegrees(double value) { return setTargetPositionInUnits(value, 360.0); }
+	bool setTargetPositionDegrees(double value, bool restoreSpeed=false, int32_t speed=0) { return setTargetPositionInUnits(value, 360.0, restoreSpeed, speed); }
 
 	// Sets the target position in hours, initiating a non-blocking go-to. Returns immediately. Returns true on success, else false
-	bool setTargetPositionHours(double value) { return setTargetPositionInUnits(value, 24.0); }
+	bool setTargetPositionHours(double value, bool restoreSpeed=false, int32_t speed=0) { return setTargetPositionInUnits(value, 24.0, restoreSpeed, speed); }
 
 	// Syncs current position in given units for full circle
-	bool setTargetPositionInUnits(double value, double full);
+	bool setTargetPositionInUnits(double value, double full, bool restoreSpeed=false, int32_t speed=0);
+
+	// Converts radians to native steps
+	int32_t radiansToNative(double value) {	return unitsToNative(value, 2*M_PI); }
+
+	// Converts degrees to native steps
+	int32_t degreesToNative(double value) {	return unitsToNative(value, 360.0); }
+
+	// Converts hours to native steps
+	int32_t hoursToNative(double value) { return unitsToNative(value, 24.0); }
+
+	// Converts given full circle units to native steps
+	int32_t unitsToNative(double value, double full) {	return round(value * (microsteps * stepsPerRev * gearRatio) / full); }
+
+	// Converts given speed in arcecs/sec to native step speed units
+	int32_t arcsecPerSecToNative(double arcsecPerSec);
 
 	// Get minimum position limit. Returns true on success, else false
 	bool getMinPosition(int32_t *result) { *result=minPosition; return true; }

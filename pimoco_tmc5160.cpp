@@ -280,7 +280,14 @@ void TMC5160::isr() {
 	}
 	// check which event caused the interrupt
 	if(rampStat && (1ul<<7)) {        // event_pos_reached
-		LOG_INFO("Position reached");	
+		hasReachedTarget=true;
+		if(doRestoreSpeed)
+			if(!setTargetSpeed(speedToRestore))
+				LOGF_ERROR("Position reached, unable to restore speed %d", speedToRestore);
+			else
+				LOGF_INFO("Position reached, restored speed %d", speedToRestore);
+		else
+			LOG_INFO("Position reached");	
 	} else if(rampStat && (1ul<<6)) { // event_stop_sg
 		LOG_INFO("Stall detected");	
 	}
@@ -305,6 +312,18 @@ TMC5160::TMC5160(const char *theIndiDeviceName, int diag0Pin) : SPI(theIndiDevic
 
     for(int i=0; i<(int) TMCR_NUM_REGISTERS; i++)
     	cachedRegisterValues[i]=0;
+}
+
+
+bool TMC5160::setTargetSpeed(int32_t value) {
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Setting target speed to %'+d", value);
+
+	// FIXME: min/max position limits are not checked when setting a speed.
+	// Would need a background timer with e.g. speed-based 1s lookahead.
+
+	return setRegister(TMCR_RAMPMODE, value>=0 ? 1 : 2) &&    // select velocity mode and sign
+	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
 }
 
 

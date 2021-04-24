@@ -154,6 +154,30 @@ public:
 
 
 public:
+	// Basic motion settings
+	//
+	// Returns the current speed in the variable pointed to by result. Returns true on success, else false	
+	bool getSpeed(int32_t *result) { return getRegister(TMCR_VACTUAL, (uint32_t*) result); }
+
+	// Sets the target speed to the given number of microsteps per second. Returns immediately. Returns true on success, else false
+	bool setTargetSpeed(int32_t value);
+
+	// Gets flag if speed is restored on interrupt when target position is reached. Always succeeds and returns true 
+	bool getDoRestoreSpeed(bool *result) { *result=doRestoreSpeed; return true; }
+
+	// Sets flag if speed is restored on interrupt when target position is reached. Always succeeds and returns true 
+	bool setDoRestoreSpeed(bool value) { doRestoreSpeed=value; return true; }
+
+	// Gets the speed to restore after target position was reached. Always succeeds and returns true 
+	bool getSpeedToRestore(int32_t *result) { *result=speedToRestore; return true; }
+
+	// Sets the speed to restore after target position was reached. Always succeeds and returns true 
+	bool setSpeedToRestore(int32_t value) { speedToRestore=value; return true; }
+
+	// Returns true if the stepper has reached its target position
+	bool hasReachedTargetPos() { return hasReachedTarget; }
+
+
 	// General configuration settings
 	//
 
@@ -494,6 +518,15 @@ public:
 protected:
 	// ISR for this object, reacting to Diag0 output
 	void isr(); 
+
+	// Flag: has the motor reached the target position? Updated in ISR
+	volatile bool hasReachedTarget=false;
+
+	// Flag if ISR should restore a constant speed when the motor has reached the target position
+	bool doRestoreSpeed=true;
+
+	// The speed to restore in the ISR once the motor has reached the target position
+	int32_t speedToRestore=0;
 
 	// True if GPIO has been initialized
 	static bool isGPIOInitialized;
