@@ -39,11 +39,11 @@ const double PimocoMount::trackRates[]={
 };
 
 const char *PimocoMount::trackRateNames[]={
-    "SIDEREAL", // TRACK_SIDEREAL
-    "SOLAR",    // TRACK_SOLAR
-    "LUNAR",    // TRACK_LUNAR
-    "CUSTOM",   // TRACK_CUSTOM
-    "KING",     // King tracking rate, not defined in INDI standard
+    "TRACK_SIDEREAL", // TRACK_SIDEREAL
+    "TRACK_SOLAR",    // TRACK_SOLAR
+    "TRACK_LUNAR",    // TRACK_LUNAR
+    "TRACK_CUSTOM",   // TRACK_CUSTOM
+    "TRACK_KING",     // King tracking rate, not defined in INDI standard
 };
 
 const char *PimocoMount::trackRateLabels[]={
@@ -352,12 +352,14 @@ void PimocoMount::guiderTimerHit() {
 	if(guiderActiveRA  & isLessThanOrEqual(&guiderTimeoutRA,  &now)) {
 		stepperHA.setTargetVelocityArcsecPerSec(getTrackRateRA());
 		guiderActiveRA=false;
+		// LOG_INFO("Guide EW done");
 		GuideComplete(AXIS_RA);
 	}
 
 	if(guiderActiveDec & isLessThanOrEqual(&guiderTimeoutDec, &now)) {
 		stepperDec.setTargetVelocityArcsecPerSec(getTrackRateDec());
 		guiderActiveDec=false;
+		// LOG_INFO("Guide NS done");
 		GuideComplete(AXIS_DE);
 	}
 }
@@ -654,8 +656,10 @@ bool PimocoMount::UnPark() {
 }
 
 IPState PimocoMount::GuideNorth(uint32_t ms) {
-	if(TrackState!=SCOPE_TRACKING)
-		return IPS_ALERT; // can only guide if tracking
+	if(TrackState!=SCOPE_TRACKING) {
+		LOG_ERROR("Can only guide while tracking");
+		return IPS_ALERT;
+	}
 
 	// Indi: North is defined as DEC+
 	double arcsecPerSec=getTrackRateDec() + SlewRatesN[0].value * trackRates[0];
@@ -668,12 +672,16 @@ IPState PimocoMount::GuideNorth(uint32_t ms) {
 	if(!guiderActiveRA || isLessThanOrEqual(&guiderTimeoutDec, &guiderTimeoutRA))
 		SetTimer(ms);
 
+	//LOGF_INFO("Guide north %d ms speed %f", ms, arcsecPerSec);
+
 	return IPS_BUSY;
 }
 
 IPState PimocoMount::GuideSouth(uint32_t ms) {
-	if(TrackState!=SCOPE_TRACKING)
-		return IPS_ALERT; // can only guide if tracking
+	if(TrackState!=SCOPE_TRACKING) {
+		LOG_ERROR("Can only guide while tracking");
+		return IPS_ALERT;
+	}
 
 	// Indi: South is defined as DEC-
 	double arcsecPerSec=getTrackRateDec() - SlewRatesN[0].value * trackRates[0];
@@ -686,12 +694,16 @@ IPState PimocoMount::GuideSouth(uint32_t ms) {
 	if(!guiderActiveRA || isLessThanOrEqual(&guiderTimeoutDec, &guiderTimeoutRA))
 		SetTimer(ms);
 
+	//LOGF_INFO("Guide south %d ms speed %f", ms, arcsecPerSec);
+
 	return IPS_BUSY;
 }
 
 IPState PimocoMount::GuideEast(uint32_t ms) {
-	if(TrackState!=SCOPE_TRACKING)
-		return IPS_ALERT; // can only guide if tracking
+	if(TrackState!=SCOPE_TRACKING) {
+		LOG_ERROR("Can only guide while tracking");
+		return IPS_ALERT;
+	}
 
 	// Indi: East is defined as RA+, so HA-
 	double arcsecPerSec=getTrackRateRA() - SlewRatesN[0].value * trackRates[0];
@@ -704,12 +716,16 @@ IPState PimocoMount::GuideEast(uint32_t ms) {
 	if(!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec))
 		SetTimer(ms);
 
+	//LOGF_INFO("Guide east %d ms speed %f", ms, arcsecPerSec);
+
 	return IPS_BUSY;
 }
 
 IPState PimocoMount::GuideWest(uint32_t ms) {
-	if(TrackState!=SCOPE_TRACKING)
-		return IPS_ALERT; // can only guide if tracking
+	if(TrackState!=SCOPE_TRACKING) {
+		LOG_ERROR("Can only guide while tracking");
+		return IPS_ALERT;
+	}
 
 	// Indi: West is defined as RA-, so HA+
 	double arcsecPerSec=getTrackRateRA() + SlewRatesN[0].value * trackRates[0];
@@ -721,6 +737,8 @@ IPState PimocoMount::GuideWest(uint32_t ms) {
 
 	if(!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec))
 		SetTimer(ms);
+
+	//LOGF_INFO("Guide west %d ms speed %f", ms, arcsecPerSec);
 
 	return IPS_BUSY;
 }
