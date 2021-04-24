@@ -129,6 +129,7 @@ const char *PimocoMount::getDefaultName() {
 bool PimocoMount::initProperties() {
 	if(!INDI::Telescope::initProperties()) 
 		return false;
+ 	initGuiderProperties(getDeviceName(), GUIDE_TAB); // returns void, cannot fail
 
 	// Create the four standard tracking modes
 	AddTrackMode(trackRateNames[TRACK_SIDEREAL], trackRateLabels[TRACK_SIDEREAL], true);
@@ -223,6 +224,11 @@ bool PimocoMount::ISNewNumber(const char *dev, const char *name, double values[]
     
 	if(!strcmp(name, SlewRatesNP.name)) {
         return ISUpdateNumber(&SlewRatesNP, values, names, n, true);		
+	}
+
+	if(!strcmp(name, GuideNSNP.name) || !strcmp(name, GuideWENP.name)) {
+		processGuiderProperties(name, values, names, n); // does not return a status
+		return true;
 	}
 
 	return INDI::Telescope::ISNewNumber(dev, name, values, names, n);
@@ -321,13 +327,31 @@ void PimocoMount::TimerHit() {
 	if(!isConnected())
 		return;
 
-	ReadScopeStatus();
+	if(guiderActiveRA || guiderActiveDec) 
+		guiderTimerHit(); 	// guiding is more time-critical, go first
+	else
+		ReadScopeStatus();
 	
-	// Workaround: increase polling frequency to 20/s while slewing, to allow fast switch back to tracking 
-	uint32_t pollingPeriod= ((TrackState==SCOPE_SLEWING) && wasTrackingBeforeGoto) ? 100 : getCurrentPollingPeriod();
+	uint32_t pollingPeriod=getNextTimerInterval();
     SetTimer(pollingPeriod);
 }
 
+void PimocoMount::guiderTimerHit() {
+	struct timespec now;
+	clock_gettime(CLOCK_REALTIME, &now);
+
+	if(guiderActiveRA  & isLessThanOrEqual(&guiderTimeoutRA,  &now)) {
+		stepperHA.setTargetVelocityArcsecPerSec(getTrackRateRA());
+		guiderActiveRA=false;
+		GuideComplete(AXIS_RA);
+	}
+
+	if(guiderActiveDec & isLessThanOrEqual(&guiderTimeoutDec, &now)) {
+		stepperDec.setTargetVelocityArcsecPerSec(getTrackRateDec());
+		guiderActiveDec=false;
+		GuideComplete(AXIS_DE);
+	}
+}
 
 bool PimocoMount::ReadScopeStatus() {
 	// get local hour angle and declination angle from scope
@@ -384,6 +408,24 @@ bool PimocoMount::ReadScopeStatus() {
 	return true;
 }
 
+uint32_t PimocoMount::getNextTimerInterval() {
+	if(TrackState==SCOPE_TRACKING && (guiderActiveRA || guiderActiveDec)) {
+		// if guiding, closest guider timeout determines the delay 
+		long ms;
+		if(guiderActiveRA && (!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec)))
+			ms=getMsUntil(&guiderTimeoutRA);
+		else
+			ms=getMsUntil(&guiderTimeoutDec);
+		if(ms>0)
+			return (uint32_t) ms;
+		guiderTimerHit();
+		return getNextTimerInterval();		
+	} else if(TrackState==SCOPE_SLEWING) {
+	    // if slewing, perform reasonably fast updates of HA target position as time passes		
+		return 100; 
+	} else
+		return getCurrentPollingPeriod();
+}
 
 bool PimocoMount::Abort() {
 	LOG_INFO("Aborting all motion");
@@ -603,6 +645,78 @@ bool PimocoMount::UnPark() {
 	return true;
 }
 
+IPState PimocoMount::GuideNorth(uint32_t ms) {
+	if(TrackState!=SCOPE_TRACKING)
+		return IPS_ALERT; // can only guide if tracking
+
+	// Indi: North is defined as DEC+
+	double arcsecPerSec=getTrackRateDec() + SlewRatesN[0].value * trackRates[0];
+	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec))
+		return IPS_ALERT;
+
+	guiderActiveDec=true;
+	setToNowPlusMs(&guiderTimeoutDec, ms);
+
+	if(!guiderActiveRA || isLessThanOrEqual(&guiderTimeoutDec, &guiderTimeoutRA))
+		SetTimer(ms);
+
+	return IPS_BUSY;
+}
+
+IPState PimocoMount::GuideSouth(uint32_t ms) {
+	if(TrackState!=SCOPE_TRACKING)
+		return IPS_ALERT; // can only guide if tracking
+
+	// Indi: South is defined as DEC-
+	double arcsecPerSec=getTrackRateDec() - SlewRatesN[0].value * trackRates[0];
+	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec))
+		return IPS_ALERT;
+
+	guiderActiveDec=true;
+	setToNowPlusMs(&guiderTimeoutDec, ms);
+
+	if(!guiderActiveRA || isLessThanOrEqual(&guiderTimeoutDec, &guiderTimeoutRA))
+		SetTimer(ms);
+
+	return IPS_BUSY;
+}
+
+IPState PimocoMount::GuideEast(uint32_t ms) {
+	if(TrackState!=SCOPE_TRACKING)
+		return IPS_ALERT; // can only guide if tracking
+
+	// Indi: East is defined as RA+, so HA-
+	double arcsecPerSec=getTrackRateRA() - SlewRatesN[0].value * trackRates[0];
+	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec))
+		return IPS_ALERT;
+
+	guiderActiveRA=true;
+	setToNowPlusMs(&guiderTimeoutRA, ms);
+
+	if(!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec))
+		SetTimer(ms);
+
+	return IPS_BUSY;
+}
+
+IPState PimocoMount::GuideWest(uint32_t ms) {
+	if(TrackState!=SCOPE_TRACKING)
+		return IPS_ALERT; // can only guide if tracking
+
+	// Indi: West is defined as RA-, so HA+
+	double arcsecPerSec=getTrackRateRA() + SlewRatesN[0].value * trackRates[0];
+	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec))
+		return IPS_ALERT;
+
+	guiderActiveRA=true;
+	setToNowPlusMs(&guiderTimeoutRA, ms);
+
+	if(!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec))
+		SetTimer(ms);
+
+	return IPS_BUSY;
+}
+
 double PimocoMount::getLocalSiderealTime() {
    	struct ln_date lnDate;
    	ln_get_date_from_sys(&lnDate);
@@ -611,4 +725,28 @@ double PimocoMount::getLocalSiderealTime() {
  	double observerLongitudeDegreesEastPositive=LocationN[LOCATION_LONGITUDE].value;
  	double last=gast + observerLongitudeDegreesEastPositive/15.0;
  	return last;	
+}
+
+void PimocoMount::setToNowPlusMs(struct timespec *ts, uint32_t ms) {
+	clock_gettime(CLOCK_REALTIME, ts);
+	ts->tv_nsec+=((long) ms)*1000;
+	if(ts->tv_nsec>=1000000000) {
+		ts->tv_sec+=1;
+		ts->tv_nsec-=1000000000;
+	} 
+}
+
+long PimocoMount::getMsUntil(const struct timespec *ts) {
+	struct timespec now;
+	clock_gettime(CLOCK_REALTIME, &now);
+
+	auto secDiff=ts->tv_sec - now.tv_sec;
+	if(ts->tv_nsec>=now.tv_nsec) {
+		auto nsecDiff=ts->tv_nsec - now.tv_nsec;
+		return ((long)secDiff)*1000 + ((long)nsecDiff)/1000000;
+	} else {
+		secDiff--;
+		auto nsecDiff=1000000000 + ts->tv_nsec - now.tv_nsec;
+		return ((long)secDiff)*1000 + ((long)nsecDiff)/1000000;
+	}
 }

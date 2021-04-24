@@ -21,11 +21,14 @@
 #ifndef PIMOCO_MOUNT_H
 #define PIMOCO_MOUNT_H
 
+#include <time.h>
+#include <libindi/indicom.h>
 #include <libindi/inditelescope.h>
+#include <libindi/indiguiderinterface.h>
 #include "pimoco_stepper.h"
 
 // Indi class for pimoco mounts
-class PimocoMount : public INDI::Telescope {
+class PimocoMount : public INDI::Telescope, public INDI::GuiderInterface {
 public:
 	// Creates a Pimoco mount
 	PimocoMount();
@@ -54,7 +57,14 @@ protected:
     virtual bool Handshake() override;
     virtual void TimerHit() override;
 
+    // Updates HA/Dec rates if guiding timeouts are reached
+    void guiderTimerHit();
+
     virtual bool ReadScopeStatus() override;
+
+    // Returns next timer interval in milliseconds. Guiding has priority, then Goto tracking, else base polling rate. 
+    uint32_t getNextTimerInterval();
+
 
     virtual bool Abort() override;
 
@@ -75,8 +85,22 @@ protected:
     virtual bool Park() override;
     virtual bool UnPark() override;
 
+    virtual IPState GuideNorth(uint32_t ms) override;
+    virtual IPState GuideSouth(uint32_t ms) override;
+    virtual IPState GuideEast(uint32_t ms) override;
+    virtual IPState GuideWest(uint32_t ms) override;
+
     // Returns local apparent sidereal time in hours
     double getLocalSiderealTime();
+
+    // Checks if first time is less-than-or-equal to second
+    bool isLessThanOrEqual(const struct timespec *first, const struct timespec *second) { return first->tv_sec<second->tv_sec || (first->tv_sec==second->tv_sec && first->tv_nsec<=second->tv_nsec); }
+
+    // Sets the given timespec to current system realtime + given milliseconds. Used for guiding timers
+    void setToNowPlusMs(struct timespec *ts, uint32_t ms);
+
+    // Returns milliseconds from current realtime clock until given timespec
+    long getMsUntil(const struct timespec *ts);
 
     // Internal tracking methods
     //
@@ -134,6 +158,12 @@ protected:
 
     // Park position
     double parkPositionHA=0, parkPositionDec=0;
+
+    // Flag: is guider pulse currently active?
+    bool guiderActiveRA=false, guiderActiveDec=false;
+
+    // Timeouts for guider pulse
+    struct timespec guiderTimeoutRA, guiderTimeoutDec;
 
 
     enum {
