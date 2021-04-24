@@ -141,7 +141,7 @@ public:
 	};
 
 	// Creates a TMC5160 stepper connected via SPI, with optional physical connector pin for diag0 interrupt (negative=unused)
-	TMC5160(const char *theIndiDeviceName, int diag0Pin=-1);
+	TMC5160(const char *theIndiDeviceName, int thDiag0Pin=-1);
 
 	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
 	~TMC5160() { }
@@ -512,6 +512,9 @@ public:
 protected:
 	// ISR for this object, reacting to Diag0 output
 	void isr(); 
+
+	// Physical Diag0 pin on RPI GPIO connector. <=0 means none
+	int diag0Pin=0;
 
 	// Flag: has the motor reached the target position? Updated in ISR
 	volatile bool hasReachedTarget=false;

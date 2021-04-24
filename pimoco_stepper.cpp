@@ -27,6 +27,7 @@
 #include <math.h> // for round(), M_PI
 #include <sys/time.h>  // for gettimeofday() etc.
 #include <libindi/indilogger.h> // for LOG_..., LOGF_... macros
+#include <wiringPi.h> // for GPIO etc
 
 #include "pimoco_stepper.h"
 #include "pimoco_time.h"
@@ -72,6 +73,20 @@ bool Stepper::open(const char *deviceName) {
 		return false;
 	if(!setDiag0EnableInterruptStep(0))
 		return false;
+
+	// setup ISR
+	if(diag0Pin>0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
+		LOGF_INFO("Setting up ISR on pin %d for device %s", diag0Pin, deviceName);
+
+		initGPIO();
+		objectsByPin[diag0Pin]=this;
+		pinMode(diag0Pin, INPUT);
+		pullUpDnControl(diag0Pin, PUD_UP);    
+		wiringPiISR(diag0Pin, INT_EDGE_FALLING, isrsByPin[diag0Pin]);
+
+		isr(); // call once to initialize
+	} else 
+		LOGF_INFO("No ISR for for device %s", deviceName);
 
 	// Set motor current parameters
 	//

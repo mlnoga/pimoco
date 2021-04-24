@@ -299,17 +299,7 @@ void TMC5160::isr() {
 }
 
 
-TMC5160::TMC5160(const char *theIndiDeviceName, int diag0Pin) : SPI(theIndiDeviceName), deviceStatus((enum TMCStatusFlags) 0) {
-	initGPIO();
-
-	// setup ISR
-	if(diag0Pin>0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
-		objectsByPin[diag0Pin]=this;
-		pinMode(diag0Pin, INPUT);
-		pullUpDnControl(diag0Pin, PUD_UP);    
-		wiringPiISR(diag0Pin, INT_EDGE_FALLING, isrsByPin[diag0Pin]);
-	}
-
+TMC5160::TMC5160(const char *theIndiDeviceName, int theDiag0Pin) : SPI(theIndiDeviceName), diag0Pin(theDiag0Pin), deviceStatus((enum TMCStatusFlags) 0) {
     for(int i=0; i<(int) TMCR_NUM_REGISTERS; i++)
     	cachedRegisterValues[i]=0;
 }
