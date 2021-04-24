@@ -306,6 +306,19 @@ bool Stepper::setTargetPosition(int32_t value, int32_t restoreSpeed) {
 	if(debugLevel>=TMC_DEBUG_DEBUG)
 		LOGF_DEBUG("Setting target position to %'+d", value);
 
+	// if position already reached, switch to desired tracking speed directly
+	uint32_t actual;
+	if(!getRegister(TMCR_XACTUAL, &actual)) {
+		LOG_ERROR("Error reading position");
+		return false;
+	}
+	if(actual==(uint32_t) value) {
+		LOG_INFO("Already at target");
+		setTargetSpeed(restoreSpeed);
+		hasReachedTarget=true;
+		return true; 
+	}
+
 	// FIXME: race condition if Goto is already active
 	setSpeedToRestore(restoreSpeed);
 	hasReachedTarget=false; 

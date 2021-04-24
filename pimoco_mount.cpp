@@ -599,8 +599,7 @@ bool PimocoMount::Goto(double ra, double dec) {
 	gotoTargetRA=ra;
 	gotoTargetDec=dec;
  
-    if(wasTrackingBeforeGoto)
-		SetTimer(50);  // Workaround: increase polling frequency to 20/s so we can reactivate tracking fast enough
+	SetTimer(100);  // Workaround: increase polling frequency to continuously update HA target during slew
 
     TrackState = SCOPE_SLEWING;
   	return true;
