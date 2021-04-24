@@ -162,6 +162,8 @@ bool PimocoMount::initProperties() {
 	loadConfig(true, SlewRatesNP.name);
 
     addDebugControl();
+ 	setDriverInterface(getDriverInterface() | GUIDER_INTERFACE);
+
     return true;
 }
 
@@ -176,8 +178,15 @@ bool PimocoMount::updateProperties() {
 
 	if(isConnected()) {
 	    defineProperty(&SlewRatesNP);
+
+        defineProperty(&GuideNSNP);
+        defineProperty(&GuideWENP);
+
 	} else {
 	    deleteProperty(SlewRatesNP.name);
+
+        deleteProperty(GuideNSNP.name);
+        deleteProperty(GuideWENP.name);
 	}
 
 	return true;
