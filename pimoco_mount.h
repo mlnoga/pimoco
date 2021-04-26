@@ -21,7 +21,6 @@
 #ifndef PIMOCO_MOUNT_H
 #define PIMOCO_MOUNT_H
 
-#include <time.h>
 #include <libindi/indicom.h>
 #include <libindi/inditelescope.h>
 #include <libindi/indiguiderinterface.h>
@@ -93,14 +92,9 @@ protected:
     // Returns local apparent sidereal time in hours
     double getLocalSiderealTime();
 
-    // Checks if first time is less-than-or-equal to second
-    bool isLessThanOrEqual(const struct timespec *first, const struct timespec *second) { return first->tv_sec<second->tv_sec || (first->tv_sec==second->tv_sec && first->tv_nsec<=second->tv_nsec); }
+    // Returns current realtime clock in milliseconds
+    uint64_t getTimeMillis();
 
-    // Sets the given timespec to current system realtime + given milliseconds. Used for guiding timers
-    void setToNowPlusMs(struct timespec *ts, uint32_t ms);
-
-    // Returns milliseconds from current realtime clock until given timespec
-    long getMsUntil(const struct timespec *ts);
 
     // Internal tracking methods
     //
@@ -163,7 +157,7 @@ protected:
     bool guiderActiveRA=false, guiderActiveDec=false;
 
     // Timeouts for guider pulse
-    struct timespec guiderTimeoutRA, guiderTimeoutDec;
+    uint64_t guiderTimeoutRA, guiderTimeoutDec;
 
 
     enum {

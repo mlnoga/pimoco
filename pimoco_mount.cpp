@@ -22,6 +22,7 @@
 #include <libindi/indicom.h>  // for rangeHA etc.
 #include <libnova/julian_day.h>
 #include <libnova/sidereal_time.h>
+#include <time.h>
 
 #define CDRIVER_VERSION_MAJOR	1
 #define CDRIVER_VERSION_MINOR	0
@@ -340,26 +341,32 @@ void PimocoMount::TimerHit() {
 		guiderTimerHit(); 	// guiding is more time-critical, go first
 	else
 		ReadScopeStatus();
+
+	/*uint32_t tstepHA, tstepDec;
+	if((!stepperHA.getTStep(&tstepHA)) || (!stepperDec.getTStep(&tstepDec)))
+		LOG_ERROR("Getting tstep");
+	else
+		LOGF_INFO("tstep HA %d Dec %d", tstepHA, tstepDec);
+	*/
 	
 	uint32_t pollingPeriod=getNextTimerInterval();
     SetTimer(pollingPeriod);
 }
 
 void PimocoMount::guiderTimerHit() {
-	struct timespec now;
-	clock_gettime(CLOCK_REALTIME, &now);
+	uint64_t now=getTimeMillis();
 
-	if(guiderActiveRA  & isLessThanOrEqual(&guiderTimeoutRA,  &now)) {
+	if(guiderActiveRA  && guiderTimeoutRA<=now) {
 		stepperHA.setTargetVelocityArcsecPerSec(getTrackRateRA());
 		guiderActiveRA=false;
-		// LOG_INFO("Guide EW done");
+		LOGF_INFO("Guide EW done %d ms after requested pulse", now-guiderTimeoutRA);
 		GuideComplete(AXIS_RA);
 	}
 
-	if(guiderActiveDec & isLessThanOrEqual(&guiderTimeoutDec, &now)) {
+	if(guiderActiveDec && guiderTimeoutDec<=now) {
 		stepperDec.setTargetVelocityArcsecPerSec(getTrackRateDec());
 		guiderActiveDec=false;
-		// LOG_INFO("Guide NS done");
+		LOGF_INFO("Guide NS done %d ms after requested pulse", now-guiderTimeoutDec);
 		GuideComplete(AXIS_DE);
 	}
 }
@@ -382,6 +389,7 @@ bool PimocoMount::ReadScopeStatus() {
 	// update scope status
 	auto  haStatus=stepperHA .getStatus();
 	auto decStatus=stepperDec.getStatus();
+
 	switch(TrackState) {
         case SCOPE_IDLE:
         	break; // do nothing
@@ -422,11 +430,11 @@ bool PimocoMount::ReadScopeStatus() {
 uint32_t PimocoMount::getNextTimerInterval() {
 	if(TrackState==SCOPE_TRACKING && (guiderActiveRA || guiderActiveDec)) {
 		// if guiding, closest guider timeout determines the delay 
-		long ms;
-		if(guiderActiveRA && (!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec)))
-			ms=getMsUntil(&guiderTimeoutRA);
+		uint64_t ms;
+		if(guiderActiveRA && (!guiderActiveDec || guiderTimeoutRA<=guiderTimeoutDec))
+			ms=guiderTimeoutRA - getTimeMillis();
 		else
-			ms=getMsUntil(&guiderTimeoutDec);
+			ms=guiderTimeoutDec- getTimeMillis();
 		if(ms>0)
 			return (uint32_t) ms;
 		guiderTimerHit();
@@ -667,9 +675,9 @@ IPState PimocoMount::GuideNorth(uint32_t ms) {
 		return IPS_ALERT;
 
 	guiderActiveDec=true;
-	setToNowPlusMs(&guiderTimeoutDec, ms);
+	guiderTimeoutDec=getTimeMillis()+ms;
 
-	if(!guiderActiveRA || isLessThanOrEqual(&guiderTimeoutDec, &guiderTimeoutRA))
+	if(!guiderActiveRA || guiderTimeoutDec<=guiderTimeoutRA)
 		SetTimer(ms);
 
 	//LOGF_INFO("Guide north %d ms speed %f", ms, arcsecPerSec);
@@ -689,9 +697,9 @@ IPState PimocoMount::GuideSouth(uint32_t ms) {
 		return IPS_ALERT;
 
 	guiderActiveDec=true;
-	setToNowPlusMs(&guiderTimeoutDec, ms);
+	guiderTimeoutDec=getTimeMillis()+ms;
 
-	if(!guiderActiveRA || isLessThanOrEqual(&guiderTimeoutDec, &guiderTimeoutRA))
+	if(!guiderActiveRA || guiderTimeoutDec<=guiderTimeoutRA)
 		SetTimer(ms);
 
 	//LOGF_INFO("Guide south %d ms speed %f", ms, arcsecPerSec);
@@ -711,9 +719,9 @@ IPState PimocoMount::GuideEast(uint32_t ms) {
 		return IPS_ALERT;
 
 	guiderActiveRA=true;
-	setToNowPlusMs(&guiderTimeoutRA, ms);
+	guiderTimeoutRA=getTimeMillis()+ms;
 
-	if(!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec))
+	if(!guiderActiveDec || guiderTimeoutRA<=guiderTimeoutDec)
 		SetTimer(ms);
 
 	//LOGF_INFO("Guide east %d ms speed %f", ms, arcsecPerSec);
@@ -733,9 +741,9 @@ IPState PimocoMount::GuideWest(uint32_t ms) {
 		return IPS_ALERT;
 
 	guiderActiveRA=true;
-	setToNowPlusMs(&guiderTimeoutRA, ms);
+	guiderTimeoutRA=getTimeMillis()+ms;
 
-	if(!guiderActiveDec || isLessThanOrEqual(&guiderTimeoutRA, &guiderTimeoutDec))
+	if(!guiderActiveDec || guiderTimeoutRA<=guiderTimeoutDec)
 		SetTimer(ms);
 
 	//LOGF_INFO("Guide west %d ms speed %f", ms, arcsecPerSec);
@@ -753,26 +761,9 @@ double PimocoMount::getLocalSiderealTime() {
  	return last;	
 }
 
-void PimocoMount::setToNowPlusMs(struct timespec *ts, uint32_t ms) {
-	clock_gettime(CLOCK_REALTIME, ts);
-	ts->tv_nsec+=((long) ms)*1000;
-	if(ts->tv_nsec>=1000000000) {
-		ts->tv_sec+=1;
-		ts->tv_nsec-=1000000000;
-	} 
-}
-
-long PimocoMount::getMsUntil(const struct timespec *ts) {
+uint64_t PimocoMount::getTimeMillis() {
 	struct timespec now;
 	clock_gettime(CLOCK_REALTIME, &now);
 
-	auto secDiff=ts->tv_sec - now.tv_sec;
-	if(ts->tv_nsec>=now.tv_nsec) {
-		auto nsecDiff=ts->tv_nsec - now.tv_nsec;
-		return ((long)secDiff)*1000 + ((long)nsecDiff)/1000000;
-	} else {
-		secDiff--;
-		auto nsecDiff=1000000000 + ts->tv_nsec - now.tv_nsec;
-		return ((long)secDiff)*1000 + ((long)nsecDiff)/1000000;
-	}
+	return ((uint64_t)now.tv_sec)*1000 + ((uint64_t)now.tv_nsec)/1000000;
 }
