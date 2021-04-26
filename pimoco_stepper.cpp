@@ -519,11 +519,11 @@ void Stepper::initProperties(INumber *MotorN, INumberVectorProperty *MotorNP,
 	uint32_t currentHwMaxMa;
 	getHardwareMaxCurrent(&currentHwMaxMa);
 
-	IUFillNumber(&MotorN[0], "STEPS", "Steps/rev [1]",     "%.0f", 0, 1000, 10, 0);
-	IUFillNumber(&MotorN[1], "GEAR",  "Gear ratio [1:n]",  "%.0f", 0, 1000, 10, 0);
-	IUFillNumber(&MotorN[2], "HOLD",  "Hold current [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
-	IUFillNumber(&MotorN[3], "RUN",   "Run current [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 0);
-	IUFillNumber(&MotorN[4], "CLOCK", "Clock [Hz]",        "%.0f", 8000000, 16000000, 100000, 9600000);
+	IUFillNumber(&MotorN[0], "STEPS", "Steps/rev [1]",     "%.0f", 0, 1000, 10, 400);
+	IUFillNumber(&MotorN[1], "GEAR",  "Gear ratio [1:n]",  "%.0f", 0, 1000, 10, 144*3);
+	IUFillNumber(&MotorN[2], "HOLD",  "Hold current [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 200);
+	IUFillNumber(&MotorN[3], "RUN",   "Run current [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 900);
+	IUFillNumber(&MotorN[4], "CLOCK", "Clock [Hz]",        "%.0f", 8000000, 16000000, 100000, 10000000);
 	IUFillNumberVector(MotorNP, MotorN, 5, getDeviceName(), motorVarName, motorUILabel, tabName, IP_RW, 0, IPS_IDLE);
 
 	IUFillSwitch(&MSwitchS[0], "INVERT", "Invert axis", ISS_OFF);
