@@ -109,19 +109,19 @@ bool Stepper::open(const char *deviceName) {
 	//
 	if(!setVStart(10))
 		return false;
-	if(!setA1(7500*3/2))
+	if(!setA1(11250))
 		return false;
-	if(!setV1(250000*3/2))
+	if(!setV1(200000))
 		return false;
-	if(!setAMax(2500*3/2))
+	if(!setAMax(7000))
 		return false;
-	if(!setVMax(300000*3/2))
+	if(!setVMax(300000))
 		return false;
-	if(!setMaxGoToSpeed(300000*3/2))
+	if(!setMaxGoToSpeed(300000))
 		return false;
-	if(!setDMax(2500*3/2))
+	if(!setDMax(11250))
 		return false;
-	if(!setD1(7500*3/2))
+	if(!setD1(7000))
 		return false;
 	if(!setVStop(10))
 		return false;
@@ -535,7 +535,7 @@ void Stepper::initProperties(INumber *MotorN, INumberVectorProperty *MotorNP,
 	IUFillNumber(&RampN[3], "AMAX",      "AMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
 	IUFillNumber(&RampN[4], "VMAX",      "VMax [usteps/t]",       "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 0);
 	IUFillNumber(&RampN[5], "DMAX",      "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&RampN[6], "D1",        "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[6], "D1",        "D1 [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
 	IUFillNumber(&RampN[7], "VSTOP",     "VStop [usteps/t]",      "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
 	IUFillNumber(&RampN[8], "TZEROWAIT", "TZeroWait [512 t_clk]", "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
 	IUFillNumberVector(RampNP, RampN, 9, getDeviceName(), rampVarName, rampUILabel, tabName, IP_RW, 0, IPS_IDLE);
