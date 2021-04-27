@@ -151,6 +151,13 @@ bool PimocoMount::initProperties() {
 	IUFillNumber(&SlewRatesN[3], SlewRateS[3].name, SlewRateS[3].label, "%.1f", 0, 1600, 16, 1000);
 	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
+	// Guider properties
+	IUFillNumber(&GuiderSpeedN[0], "VALUE", "Rate [x sidereal]", "%.2f", 0, 1, 0.05, 0.75);
+	IUFillNumberVector(&GuiderSpeedNP, GuiderSpeedN, 1, getDeviceName(), "GUIDER_SPEED", "Guider speed", GUIDE_TAB, IP_RW, 0, IPS_IDLE);
+
+	IUFillNumber(&GuiderMaxPulseN[0], "VALUE", "Max [ms]", "%.f", 0, 10000, 100, 2500);
+	IUFillNumberVector(&GuiderMaxPulseNP, GuiderMaxPulseN, 1, getDeviceName(), "GUIDER_MAX_PULSE", "Guider pulse", GUIDE_TAB, IP_RW, 0, IPS_IDLE);
+
 	// load configuration data from file, as there is no device with own storage
 	loadConfig(true, HAMotorNP.name);
 	loadConfig(true, HAMSwitchSP.name);
@@ -161,6 +168,9 @@ bool PimocoMount::initProperties() {
 	loadConfig(true, DecRampNP.name);
 
 	loadConfig(true, SlewRatesNP.name);
+
+	loadConfig(true, GuiderSpeedNP.name);
+	loadConfig(true, GuiderMaxPulseNP.name);
 
     addDebugControl();
  	setDriverInterface(getDriverInterface() | GUIDER_INTERFACE);
@@ -180,12 +190,16 @@ bool PimocoMount::updateProperties() {
 	if(isConnected()) {
 	    defineProperty(&SlewRatesNP);
 
+	    defineProperty(&GuiderSpeedNP);
+	    defineProperty(&GuiderMaxPulseNP);
         defineProperty(&GuideNSNP);
         defineProperty(&GuideWENP);
 
 	} else {
 	    deleteProperty(SlewRatesNP.name);
 
+	    deleteProperty(GuiderSpeedNP.name);
+	    deleteProperty(GuiderMaxPulseNP.name);
         deleteProperty(GuideNSNP.name);
         deleteProperty(GuideWENP.name);
 	}
@@ -234,6 +248,14 @@ bool PimocoMount::ISNewNumber(const char *dev, const char *name, double values[]
     
 	if(!strcmp(name, SlewRatesNP.name)) {
         return ISUpdateNumber(&SlewRatesNP, values, names, n, true);		
+	}
+
+	if(!strcmp(name, GuiderSpeedNP.name)) {
+        return ISUpdateNumber(&GuiderSpeedNP, values, names, n, true);		
+	}
+
+	if(!strcmp(name, GuiderMaxPulseNP.name)) {
+        return ISUpdateNumber(&GuiderMaxPulseNP, values, names, n, true);		
 	}
 
 	if(!strcmp(name, GuideNSNP.name) || !strcmp(name, GuideWENP.name)) {
@@ -292,6 +314,9 @@ bool PimocoMount::saveConfigItems(FILE *fp){
     IUSaveConfigNumber(fp, &DecRampNP);
 
     IUSaveConfigNumber(fp, &SlewRatesNP);
+
+    IUSaveConfigNumber(fp, &GuiderSpeedNP);
+    IUSaveConfigNumber(fp, &GuiderMaxPulseNP);
 
     return true;
 }
@@ -359,14 +384,16 @@ void PimocoMount::guiderTimerHit() {
 	if(guiderActiveRA  && guiderTimeoutRA<=now) {
 		stepperHA.setTargetVelocityArcsecPerSec(getTrackRateRA());
 		guiderActiveRA=false;
-		LOGF_INFO("Guide EW done %d ms after requested pulse", now-guiderTimeoutRA);
+		if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Guide EW done %d ms after requested pulse", now-guiderTimeoutRA);
 		GuideComplete(AXIS_RA);
 	}
 
 	if(guiderActiveDec && guiderTimeoutDec<=now) {
 		stepperDec.setTargetVelocityArcsecPerSec(getTrackRateDec());
 		guiderActiveDec=false;
-		LOGF_INFO("Guide NS done %d ms after requested pulse", now-guiderTimeoutDec);
+		if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Guide NS done %d ms after requested pulse", now-guiderTimeoutDec);
 		GuideComplete(AXIS_DE);
 	}
 }
@@ -460,7 +487,7 @@ bool PimocoMount::SetTrackEnabled(bool enabled) {
 	if(enabled) {
 		uint8_t trackMode=getTrackMode();
 		double trackRateRA=getTrackRateRA(), trackRateDec=getTrackRateDec();
-		LOGF_INFO("Enabling %s tracking mode (%d) with RA rate %.4f and Dec rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA, trackRateDec);		
+		LOGF_INFO("Enabling %s tracking (mode %d) with RA rate %.4f and Dec rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA, trackRateDec);		
 		if(!stepperHA .setTargetVelocityArcsecPerSec(trackRateRA ) ||
 	  	   !stepperDec.setTargetVelocityArcsecPerSec(trackRateDec) 	  ) {
 			LOG_ERROR("Enabling tracking");
@@ -482,7 +509,7 @@ bool PimocoMount::SetTrackEnabled(bool enabled) {
 bool PimocoMount::SetTrackEnabledRA() {
 	uint8_t trackMode=getTrackMode();
 	double trackRateRA=getTrackRateRA();
-	LOGF_INFO("Enabling %s tracking mode (%d) for RA with rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA);		
+	LOGF_INFO("Enabling %s tracking (mode %d) for RA with rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateRA);		
 	if(!stepperHA .setTargetVelocityArcsecPerSec(trackRateRA ) ) {
 		LOG_ERROR("Enabling RA tracking");
 		return false;
@@ -494,7 +521,7 @@ bool PimocoMount::SetTrackEnabledRA() {
 bool PimocoMount::SetTrackEnabledDec() {
 	uint8_t trackMode=getTrackMode();
 	double trackRateDec=getTrackRateDec();
-	LOGF_INFO("Enabling %s tracking mode (%d) for Dec with rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateDec);		
+	LOGF_INFO("Enabling %s tracking (mode %d) for Dec with rate %.4f arcsec/s", trackRateLabels[trackMode], trackMode, trackRateDec);		
 	if(!stepperDec.setTargetVelocityArcsecPerSec(trackRateDec) ) {
 		LOG_ERROR("Enabling Dec tracking");
 		return false;
@@ -549,7 +576,8 @@ bool PimocoMount::MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) {
 	}
 	double arcsecPerSec=xSidereal * trackRates[0];
 
-	LOGF_INFO("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "north" : "south"), abs(xSidereal), abs(arcsecPerSec));
+	if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "north" : "south"), abs(xSidereal), abs(arcsecPerSec));
 	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec)) {
 		LOG_ERROR("MoveNS");
 		return false;
@@ -567,7 +595,8 @@ bool PimocoMount::MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) {
 	}
 	double arcsecPerSec=xSidereal * trackRates[0];
 
-	LOGF_INFO("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "west" : "east"), abs(xSidereal), abs(arcsecPerSec));
+	if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "west" : "east"), abs(xSidereal), abs(arcsecPerSec));
 	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec)) {
 		LOG_ERROR("MoveWE");
 		return false;
@@ -667,10 +696,13 @@ IPState PimocoMount::GuideNorth(uint32_t ms) {
 	if(TrackState!=SCOPE_TRACKING) {
 		LOG_ERROR("Can only guide while tracking");
 		return IPS_ALERT;
+	} else if(ms>GuiderMaxPulseN[0].value && GuiderMaxPulseN[0].value>0) {
+		LOGF_WARN("Restricting guider pulse of %d ms to maximum of %d ms.", ms, GuiderMaxPulseN[0].value);
+		ms=GuiderMaxPulseN[0].value;
 	}
 
 	// Indi: North is defined as DEC+
-	double arcsecPerSec=getTrackRateDec() + SlewRatesN[0].value * trackRates[0];
+	double arcsecPerSec=getTrackRateDec() + GuiderSpeedN[0].value * trackRates[0];
 	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec))
 		return IPS_ALERT;
 
@@ -689,10 +721,13 @@ IPState PimocoMount::GuideSouth(uint32_t ms) {
 	if(TrackState!=SCOPE_TRACKING) {
 		LOG_ERROR("Can only guide while tracking");
 		return IPS_ALERT;
+	} else if(ms>GuiderMaxPulseN[0].value && GuiderMaxPulseN[0].value>0) {
+		LOGF_WARN("Restricting guider pulse of %d ms to maximum of %d ms.", ms, GuiderMaxPulseN[0].value);
+		ms=GuiderMaxPulseN[0].value;
 	}
 
 	// Indi: South is defined as DEC-
-	double arcsecPerSec=getTrackRateDec() - SlewRatesN[0].value * trackRates[0];
+	double arcsecPerSec=getTrackRateDec() - GuiderSpeedN[0].value * trackRates[0];
 	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec))
 		return IPS_ALERT;
 
@@ -711,10 +746,13 @@ IPState PimocoMount::GuideEast(uint32_t ms) {
 	if(TrackState!=SCOPE_TRACKING) {
 		LOG_ERROR("Can only guide while tracking");
 		return IPS_ALERT;
+	} else if(ms>GuiderMaxPulseN[0].value && GuiderMaxPulseN[0].value>0) {
+		LOGF_WARN("Restricting guider pulse of %d ms to maximum of %d ms.", ms, GuiderMaxPulseN[0].value);
+		ms=GuiderMaxPulseN[0].value;
 	}
 
 	// Indi: East is defined as RA+, so HA-
-	double arcsecPerSec=getTrackRateRA() - SlewRatesN[0].value * trackRates[0];
+	double arcsecPerSec=getTrackRateRA() - GuiderSpeedN[0].value * trackRates[0];
 	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec))
 		return IPS_ALERT;
 
@@ -733,10 +771,13 @@ IPState PimocoMount::GuideWest(uint32_t ms) {
 	if(TrackState!=SCOPE_TRACKING) {
 		LOG_ERROR("Can only guide while tracking");
 		return IPS_ALERT;
+	} else if(ms>GuiderMaxPulseN[0].value && GuiderMaxPulseN[0].value>0) {
+		LOGF_WARN("Restricting guider pulse of %d ms to maximum of %d ms.", ms, GuiderMaxPulseN[0].value);
+		ms=GuiderMaxPulseN[0].value;
 	}
 
 	// Indi: West is defined as RA-, so HA+
-	double arcsecPerSec=getTrackRateRA() + SlewRatesN[0].value * trackRates[0];
+	double arcsecPerSec=getTrackRateRA() + GuiderSpeedN[0].value * trackRates[0];
 	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec))
 		return IPS_ALERT;
 

@@ -159,7 +159,6 @@ protected:
     // Timeouts for guider pulse
     uint64_t guiderTimeoutRA, guiderTimeoutDec;
 
-
     enum {
         NUM_SLEW_RATES = 4
     } SlewRatesType;
@@ -187,6 +186,12 @@ protected:
 
     INumber SlewRatesN[NUM_SLEW_RATES]={};
     INumberVectorProperty SlewRatesNP;
+
+    INumber GuiderSpeedN[1]={};
+    INumberVectorProperty GuiderSpeedNP;
+
+    INumber GuiderMaxPulseN[1]={};
+    INumberVectorProperty GuiderMaxPulseNP;
 
 public:
     // Names of the mount configuration tabs
