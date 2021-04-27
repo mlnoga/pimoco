@@ -568,16 +568,23 @@ bool PimocoMount::SetTrackRate(double raRate, double deRate) {
 
 
 bool PimocoMount::MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) {
-	double xSidereal=0;
+	double arcsecPerSec=0;
 	if(command==MOTION_START) {
-		xSidereal=SlewRatesN[IUFindOnSwitchIndex(&SlewRateSP)].value;
+		double xSidereal=SlewRatesN[IUFindOnSwitchIndex(&SlewRateSP)].value;
 		if(dir==DIRECTION_SOUTH)  // DIRECTION_NORTH is positive on the Dec axis
 			xSidereal=-xSidereal;
+		arcsecPerSec=xSidereal * trackRates[0];
+		if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "north" : "south"), abs(xSidereal), abs(arcsecPerSec));
+	} else if(TrackState==SCOPE_TRACKING) {
+		arcsecPerSec=getTrackRateDec();		
+		if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Resuming tracking %s at %.2f arcsec/s", (arcsecPerSec>=0 ? "north" : "south"), abs(arcsecPerSec));
+	} else {
+		if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOG_DEBUG("Stopping Dec movement");
 	}
-	double arcsecPerSec=xSidereal * trackRates[0];
 
-	if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "north" : "south"), abs(xSidereal), abs(arcsecPerSec));
 	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec)) {
 		LOG_ERROR("MoveNS");
 		return false;
@@ -587,16 +594,23 @@ bool PimocoMount::MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) {
 
 
 bool PimocoMount::MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) {
-	double xSidereal=0;
+	double arcsecPerSec=0;
 	if(command==MOTION_START) {
-		xSidereal=SlewRatesN[IUFindOnSwitchIndex(&SlewRateSP)].value;
+		double xSidereal=SlewRatesN[IUFindOnSwitchIndex(&SlewRateSP)].value;
 		if(dir==DIRECTION_EAST)
 			xSidereal=-xSidereal;  // DIRECTION_WEST for RA is positive on the HA axis
+		arcsecPerSec=xSidereal * trackRates[0];
+		if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "west" : "east"), abs(xSidereal), abs(arcsecPerSec));
+	} else if (TrackState==SCOPE_TRACKING) {
+		arcsecPerSec=getTrackRateRA();
+		if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Resuming tracking %s at %.2f arcsec/s", (arcsecPerSec>=0 ? "west" : "east"), abs(arcsecPerSec));
+	} else {
+		if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOG_DEBUG("Stopping RA movement");
 	}
-	double arcsecPerSec=xSidereal * trackRates[0];
 
-	if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "west" : "east"), abs(xSidereal), abs(arcsecPerSec));
 	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec)) {
 		LOG_ERROR("MoveWE");
 		return false;
