@@ -93,7 +93,7 @@ protected:
     double getLocalSiderealTime();
 
     // Returns current realtime clock in milliseconds
-    uint64_t getTimeMillis();
+    static uint64_t getTimeMillis();
 
 
     // Internal tracking methods
