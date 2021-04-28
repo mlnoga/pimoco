@@ -414,8 +414,8 @@ bool PimocoMount::ReadScopeStatus() {
    	decDegrees=rangeDec(decDegrees);
 
 	// update scope status
-	auto  haStatus=stepperHA .getStatus();
-	auto decStatus=stepperDec.getStatus();
+	//auto  haStatus=stepperHA .getStatus();
+	//auto decStatus=stepperDec.getStatus();
 
 	switch(TrackState) {
         case SCOPE_IDLE:
@@ -441,7 +441,7 @@ bool PimocoMount::ReadScopeStatus() {
         	break; // FIXME correct fractional tracking speed issues
 
         case SCOPE_PARKING:
-        	if((haStatus & Stepper::TMC_POSITION_REACHED) && (decStatus & Stepper::TMC_POSITION_REACHED))
+        	if(stepperHA.hasReachedTargetPos() && stepperDec.hasReachedTargetPos())
 	        	SetParked(true); // updates TrackState and logs
         	break;
 
@@ -589,6 +589,7 @@ bool PimocoMount::MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) {
 		LOG_ERROR("MoveNS");
 		return false;
 	}
+    guiderActiveDec=false;  // avoid leftover guider pulse overriding manual movement on this axis
 	return true;
 }
 
@@ -615,6 +616,7 @@ bool PimocoMount::MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) {
 		LOG_ERROR("MoveWE");
 		return false;
 	}
+    guiderActiveRA=false;  // avoid leftover guider pulse overriding manual movement on this axis
 	return true;
 }
 
@@ -661,6 +663,10 @@ bool PimocoMount::Goto(double ra, double dec) {
 	gotoTargetRA=ra;
 	gotoTargetDec=dec;
  
+ 	// avoid reactivation of guiding on timeout, in case it was active 
+	guiderActiveRA=false;
+    guiderActiveDec=false;
+
 	SetTimer(100);  // Workaround: increase polling frequency to continuously update HA target during slew
 
     TrackState = SCOPE_SLEWING;
@@ -698,11 +704,15 @@ bool PimocoMount::Park() {
 	}
  
     TrackState = SCOPE_PARKING;
+    guiderActiveRA=false;
+    guiderActiveDec=false;
   	return true;
 }
 
 bool PimocoMount::UnPark() {
 	SetParked(false); // updates TrackState and logs
+    guiderActiveRA=false;
+    guiderActiveDec=false;
 	return true;
 }
 
