@@ -411,6 +411,24 @@ public:
 	// Gets waiting time between movements in opposite directions. In units of 512*t_clk. Returns true on success, else false
 	bool setTZeroWait(uint32_t value) { return setRegister(TMCR_TZEROWAIT, value); }
 
+	// Gets DCStep minimum speed from device. Returns true on success, else false
+	bool getVDCMin(uint32_t *result) { return getRegister(TMCR_VDCMIN, result); }
+
+	// Sets DCStep minimum speed on device. Returns true on success, else false
+	bool setVDCMin(uint32_t value) { return setRegister(TMCR_VDCMIN, value); }
+
+	// Gets DC time from device. Returns true on success, else false
+	bool getDCTime(uint32_t *result) { return getRegisterBits(TMCR_DCCTRL, result, 0, 10); }
+
+	// Sets DC time on device. Returns true on success, else false
+	bool setDCTime(uint32_t value) { return setRegisterBits(TMCR_DCCTRL, value, 0, 10); }
+
+	// Gets DC stall guard from device. Returns true on success, else false
+	bool getDCStallGuard(uint32_t *result) { return getRegisterBits(TMCR_DCCTRL, result, 16, 8); }
+
+	// Sets DC stall guardon device. Returns true on success, else false
+	bool setDCStallGuard(uint32_t value) { return setRegisterBits(TMCR_DCCTRL, value, 16, 8); }
+
 protected:
 	// Gets StallGuard stop enablement status 0/1 from device. Returns true on success, else false
 	bool getEnableStallGuardStop(uint32_t *result) { return getRegisterBits(TMCR_SW_MODE, result, 10, 1); }

@@ -522,28 +522,33 @@ void Stepper::initProperties(INumber *MotorN, INumberVectorProperty *MotorNP,
 	IUFillNumber(&MotorN[0], "STEPS", "Steps/rev [1]",     "%.0f", 0, 1000, 10, 400);
 	IUFillNumber(&MotorN[1], "GEAR",  "Gear ratio [1:n]",  "%.0f", 0, 1000, 10, 144*3);
 	IUFillNumber(&MotorN[2], "HOLD",  "Hold current [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 200);
-	IUFillNumber(&MotorN[3], "RUN",   "Run current [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 900);
+	IUFillNumber(&MotorN[3], "RUN",   "Run current [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 800);
 	IUFillNumber(&MotorN[4], "CLOCK", "Clock [Hz]",        "%.0f", 8000000, 16000000, 100000, 10000000);
 	IUFillNumberVector(MotorNP, MotorN, MOTORN_SIZE, getDeviceName(), motorVarName, motorUILabel, tabName, IP_RW, 0, IPS_IDLE);
 
 	IUFillSwitch(&MSwitchS[0], "INVERT", "Invert axis", ISS_OFF);
 	IUFillSwitch(&MSwitchS[1], "SGSTOP", "StallGuard motor stop", ISS_OFF);
-	IUFillSwitch(&MSwitchS[2], "VHIGHFS", "High velocity fullstep", ISS_OFF);
-	IUFillSwitch(&MSwitchS[3], "VHIGHCHM","High velocity chopper", ISS_OFF);
+	IUFillSwitch(&MSwitchS[2], "VHIGHFS", "High velocity fullstep", ISS_ON);
+	IUFillSwitch(&MSwitchS[3], "VHIGHCHM","High velocity chopper", ISS_ON);
 	IUFillSwitchVector(MSwitchSP, MSwitchS, MSWITCHS_SIZE, getDeviceName(), mSwitchVarName, mSwitchUILabel, tabName, IP_RW, ISR_NOFMANY, 0, IPS_IDLE);
 
-	IUFillNumber(&RampN[0], "VSTART",    "VStart [usteps/t]",     "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
-	IUFillNumber(&RampN[1], "A1",        "A1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&RampN[2], "V1",        "V1 [usteps/t]",         "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
-	IUFillNumber(&RampN[3], "AMAX",      "AMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&RampN[4], "VMAX",      "VMax [usteps/t]",       "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 0);
-	IUFillNumber(&RampN[5], "DMAX",      "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&RampN[6], "D1",        "D1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&RampN[7], "VSTOP",     "VStop [usteps/t]",      "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
-	IUFillNumber(&RampN[8], "TZEROWAIT", "TZeroWait [512 t_clk]", "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&RampN[9], "TPWMTHRS",  "TPWMThreshold [t_clk]", "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
-	IUFillNumber(&RampN[10], "TCOOLTHRS","TCoolThreshold [t_clk]","%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
-	IUFillNumber(&RampN[11], "THIGH",    "THigh [t_clk]",         "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
+	IUFillNumber(&RampN[ 0], "VSTART",    "VStart [usteps/t]",         "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,       10);
+	IUFillNumber(&RampN[ 1], "A1",        "A1 [usteps/ta^2]",          "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,    11000);
+	IUFillNumber(&RampN[ 2], "V1",        "V1 [usteps/t]",             "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   200000);
+	IUFillNumber(&RampN[ 3], "AMAX",      "AMax [usteps/ta^2]",        "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,     7000);
+	IUFillNumber(&RampN[ 4], "VMAX",      "VMax [usteps/t]",           "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 861346); // 1000x sidereal for GPDX beltmod
+	IUFillNumber(&RampN[ 5], "DMAX",      "DMax [usteps/ta^2]",        "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,     7000);
+	IUFillNumber(&RampN[ 6], "D1",        "D1 [usteps/ta^2]",          "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,    11000);
+	IUFillNumber(&RampN[ 7], "VSTOP",     "VStop [usteps/t]",          "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,       10);
+	IUFillNumber(&RampN[ 8], "TZEROWAIT", "TZeroWait [512 t_clk]",     "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,      100); // 5 ms
+	IUFillNumber(&RampN[ 9], "TPWMTHRS",  "TPWMThreshold [t_clk]",     "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,        0);
+	IUFillNumber(&RampN[10], "TCOOLTHRS", "TCoolThreshold [t_clk]",    "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,        0);
+	IUFillNumber(&RampN[11], "THIGH",     "THigh [t_clk]",             "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,        0);
+	IUFillNumber(&RampN[12], "VDCMIN",    "V DC min [usteps/t]",       "%.0f", 0, (1ul<<23)-1,   ((1ul<<23)-1)/99,    50000); // 5-6% of VMax
+	IUFillNumber(&RampN[13], "DCTIME",    "DC time [t_clk]",           "%.0f", 0, (1ul<<10)-1,   ((1ul<<10)-1)/50,      200); // experimentally set
+	IUFillNumber(&RampN[14], "DCSG",      "DC stall guard [16 t_clk]", "%.0f", 0, (1ul<< 8)-1,   ((1ul<< 8)-1)/50,       14); // DCTIME/16 + 1
+	IUFillNumber(&RampN[15], "TOFF",      "Chopper off time",          "%.0f", 0, (1ul<< 4)-1,                  1,        5);
+	IUFillNumber(&RampN[16], "TBLANK",    "Chopper blank time",        "%.0f", 0, (1ul<< 4)-1,                  1,        2);
 	IUFillNumberVector(RampNP, RampN, RAMPN_SIZE, getDeviceName(), rampVarName, rampUILabel, tabName, IP_RW, 0, IPS_IDLE);
 }
 
@@ -589,11 +594,14 @@ bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
 
 		// Ramp settings
 	    iDevice->defineProperty(RampNP);
-	    uint32_t vstart, a1, v1, amax, vmax, dmax, d1, vstop, tzerowait, tpwmthrs, tcoolthrs, thigh;
+	    uint32_t vstart, a1, v1, amax, vmax, dmax, d1, vstop, tzerowait, 
+	    		 tpwmthrs, tcoolthrs, thigh, vdcmin, dctime, dcsg, toff, tbl;
 	    if(!getVStart(&vstart) || !getA1(&a1) || !getV1(&v1) || !getAMax(&amax) ||
 	       !getMaxGoToSpeed(&vmax) || 
 	       !getDMax(&dmax) || !getD1(&d1) || !getVStop(&vstop) || !getTZeroWait(&tzerowait) ||
-	       !getTPWMThreshold(&tpwmthrs) || !getTCoolThreshold(&tcoolthrs) || !getTHighThreshold(&thigh)) {
+	       !getTPWMThreshold(&tpwmthrs) || !getTCoolThreshold(&tcoolthrs) || !getTHighThreshold(&thigh) ||
+	       !getVDCMin(&vdcmin) || !getDCTime(&dctime) || !getDCStallGuard(&dcsg) ||
+	       !getChopperTOff(&toff) || !getChopperTBlank(&tbl) ) {
 	       RampNP->s = IPS_ALERT;
 	       IDSetNumber(RampNP, NULL);
 	       return false;	
@@ -610,6 +618,11 @@ bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
 	    	RampN[9].value=tpwmthrs;
 	    	RampN[10].value=tcoolthrs;
 	    	RampN[11].value=thigh;
+	    	RampN[12].value=vdcmin;
+	    	RampN[13].value=dctime;
+	    	RampN[14].value=dcsg;
+	    	RampN[15].value=toff;
+	    	RampN[16].value=tbl;
 	    	IDSetNumber(RampNP, NULL);
 	    }
 	} else {
@@ -639,10 +652,15 @@ int Stepper::ISNewNumber(INumberVectorProperty *MotorNP, INumberVectorProperty *
     			 setDMax((uint32_t) round(values[5])) &&
     			 setD1((uint32_t) round(values[6])) &&
     			 setVStop((uint32_t) round(values[7])) &&
-    			 setTZeroWait((uint32_t) round(values[8]) &&
+    			 setTZeroWait((uint32_t) round(values[8])) &&
     			 setTPWMThreshold((uint32_t) round(values[9])) &&
     			 setTCoolThreshold((uint32_t) round(values[10])) &&
-    			 setTHighThreshold((uint32_t) round(values[11])) );
+    			 setTHighThreshold((uint32_t) round(values[11])) &&
+    			 setVDCMin((uint32_t) round(values[12])) &&
+    			 setDCTime((uint32_t) round(values[13])) &&
+    			 setDCStallGuard((uint32_t) round(values[14])) &&
+    			 setChopperTOff((uint32_t) round(values[15])) &&
+    			 setChopperTBlank((uint32_t) round(values[16])) ;
         return ISUpdateNumber(RampNP, values, names, n, res) ? 1 : 0; 
     }
     

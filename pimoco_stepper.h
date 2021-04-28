@@ -208,7 +208,7 @@ public:
 	enum {
 		MOTORN_SIZE = 5,
 		MSWITCHS_SIZE = 4,
-		RAMPN_SIZE = 12,
+		RAMPN_SIZE = 17,
 	};
 
 protected:
