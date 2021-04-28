@@ -204,6 +204,13 @@ public:
 	int ISNewSwitch(ISwitchVectorProperty *MSwitchSP, 
                     const char *name, ISState *states, char *names[], int n);
 
+public:
+	enum {
+		MOTORN_SIZE = 5,
+		MSWITCHS_SIZE = 4,
+		RAMPN_SIZE = 12,
+	};
+
 protected:
 	// Runs automatic chopper tuning procedure, as per TMC5160A datasheet section 7.1, p.57ff
 	bool chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutMs);

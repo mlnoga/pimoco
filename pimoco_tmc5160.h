@@ -331,6 +331,9 @@ public:
 
 	// Setter omitted intentionally, this is a read only property
 
+	// Returns approximate TStep based on given speed in native units. Actual TSTep will be in the range of this value and this value minus one. 
+	uint32_t tStepFromSpeed(uint32_t speed) { return (((uint32_t)1)<<24)/speed; }
+
 	// Gets step time threshold for StealthChop voltage PWM mode from device. PWM is on iff getTStep() is >= this. Returns true on success, else false
 	bool getTPWMThreshold(uint32_t *result) { return getRegister(TMCR_TPWMTHRS, result); }
 

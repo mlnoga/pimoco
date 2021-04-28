@@ -524,10 +524,13 @@ void Stepper::initProperties(INumber *MotorN, INumberVectorProperty *MotorNP,
 	IUFillNumber(&MotorN[2], "HOLD",  "Hold current [mA]", "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 200);
 	IUFillNumber(&MotorN[3], "RUN",   "Run current [mA]",  "%.0f", 0, currentHwMaxMa, currentHwMaxMa/100, 900);
 	IUFillNumber(&MotorN[4], "CLOCK", "Clock [Hz]",        "%.0f", 8000000, 16000000, 100000, 10000000);
-	IUFillNumberVector(MotorNP, MotorN, 5, getDeviceName(), motorVarName, motorUILabel, tabName, IP_RW, 0, IPS_IDLE);
+	IUFillNumberVector(MotorNP, MotorN, MOTORN_SIZE, getDeviceName(), motorVarName, motorUILabel, tabName, IP_RW, 0, IPS_IDLE);
 
 	IUFillSwitch(&MSwitchS[0], "INVERT", "Invert axis", ISS_OFF);
-	IUFillSwitchVector(MSwitchSP, MSwitchS, 1, getDeviceName(), mSwitchVarName, mSwitchUILabel, tabName, IP_RW, ISR_NOFMANY, 0, IPS_IDLE);
+	IUFillSwitch(&MSwitchS[1], "SGSTOP", "StallGuard motor stop", ISS_OFF);
+	IUFillSwitch(&MSwitchS[2], "VHIGHFS", "High velocity fullstep", ISS_OFF);
+	IUFillSwitch(&MSwitchS[3], "VHIGHCHM","High velocity chopper", ISS_OFF);
+	IUFillSwitchVector(MSwitchSP, MSwitchS, MSWITCHS_SIZE, getDeviceName(), mSwitchVarName, mSwitchUILabel, tabName, IP_RW, ISR_NOFMANY, 0, IPS_IDLE);
 
 	IUFillNumber(&RampN[0], "VSTART",    "VStart [usteps/t]",     "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
 	IUFillNumber(&RampN[1], "A1",        "A1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
@@ -535,10 +538,13 @@ void Stepper::initProperties(INumber *MotorN, INumberVectorProperty *MotorNP,
 	IUFillNumber(&RampN[3], "AMAX",      "AMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
 	IUFillNumber(&RampN[4], "VMAX",      "VMax [usteps/t]",       "%.0f", 0, (1ul<<23)-512, ((1ul<<23)-512)/99, 0);
 	IUFillNumber(&RampN[5], "DMAX",      "DMax [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumber(&RampN[6], "D1",        "D1 [usteps/ta^2]",    "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
+	IUFillNumber(&RampN[6], "D1",        "D1 [usteps/ta^2]",      "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
 	IUFillNumber(&RampN[7], "VSTOP",     "VStop [usteps/t]",      "%.0f", 0, (1ul<<18)-1,   ((1ul<<18)-1)/99,   0);
 	IUFillNumber(&RampN[8], "TZEROWAIT", "TZeroWait [512 t_clk]", "%.0f", 0, (1ul<<16)-1,   ((1ul<<16)-1)/99,   0);
-	IUFillNumberVector(RampNP, RampN, 9, getDeviceName(), rampVarName, rampUILabel, tabName, IP_RW, 0, IPS_IDLE);
+	IUFillNumber(&RampN[9], "TPWMTHRS",  "TPWMThreshold [t_clk]", "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
+	IUFillNumber(&RampN[10], "TCOOLTHRS","TCoolThreshold [t_clk]","%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
+	IUFillNumber(&RampN[11], "THIGH",    "THigh [t_clk]",         "%.0f", 0, (1ul<<20)-1,   ((1ul<<20)-1)/99,   0);
+	IUFillNumberVector(RampNP, RampN, RAMPN_SIZE, getDeviceName(), rampVarName, rampUILabel, tabName, IP_RW, 0, IPS_IDLE);
 }
 
 
@@ -566,23 +572,28 @@ bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
 
 	    // Motor switches
 	    iDevice->defineProperty(MSwitchSP);
-	    uint32_t invert;
-	    if(!getInvertMotor(&invert)) {
+	    uint32_t invert, sgstop, vhighfs, vhighchm;
+	    if(!getInvertMotor(&invert) ||
+	    	!getEnableStallGuardStop(&sgstop) || !getChopperHighVelFullstep(&vhighfs) || !getChopperHighVel(&vhighchm) ) {
 			MSwitchSP->s=IPS_ALERT;
 			IDSetSwitch(MSwitchSP, NULL);
 			return false;	    	
 	    } else {
-	    	MSwitchS[0].s=(invert>0) ? ISS_ON : ISS_OFF;
+	    	MSwitchS[0].s=(invert>0)   ? ISS_ON : ISS_OFF;
+	    	MSwitchS[1].s=(sgstop>0)   ? ISS_ON : ISS_OFF;
+	    	MSwitchS[2].s=(vhighfs>0)  ? ISS_ON : ISS_OFF;
+	    	MSwitchS[3].s=(vhighchm>0) ? ISS_ON : ISS_OFF;
 	    	MSwitchSP->s=IPS_OK;
 	    	IDSetSwitch(MSwitchSP, NULL);
 	    }
 
 		// Ramp settings
 	    iDevice->defineProperty(RampNP);
-	    uint32_t vstart, a1, v1, amax, vmax, dmax, d1, vstop, tzerowait;
+	    uint32_t vstart, a1, v1, amax, vmax, dmax, d1, vstop, tzerowait, tpwmthrs, tcoolthrs, thigh;
 	    if(!getVStart(&vstart) || !getA1(&a1) || !getV1(&v1) || !getAMax(&amax) ||
 	       !getMaxGoToSpeed(&vmax) || 
-	       !getDMax(&dmax) || !getD1(&d1) || !getVStop(&vstop) || !getTZeroWait(&tzerowait)) {
+	       !getDMax(&dmax) || !getD1(&d1) || !getVStop(&vstop) || !getTZeroWait(&tzerowait) ||
+	       !getTPWMThreshold(&tpwmthrs) || !getTCoolThreshold(&tcoolthrs) || !getTHighThreshold(&thigh)) {
 	       RampNP->s = IPS_ALERT;
 	       IDSetNumber(RampNP, NULL);
 	       return false;	
@@ -596,6 +607,9 @@ bool Stepper::updateProperties(INDI::DefaultDevice *iDevice,
 	    	RampN[6].value=d1;
 	    	RampN[7].value=vstop;
 	    	RampN[8].value=tzerowait;
+	    	RampN[9].value=tpwmthrs;
+	    	RampN[10].value=tcoolthrs;
+	    	RampN[11].value=thigh;
 	    	IDSetNumber(RampNP, NULL);
 	    }
 	} else {
@@ -625,7 +639,10 @@ int Stepper::ISNewNumber(INumberVectorProperty *MotorNP, INumberVectorProperty *
     			 setDMax((uint32_t) round(values[5])) &&
     			 setD1((uint32_t) round(values[6])) &&
     			 setVStop((uint32_t) round(values[7])) &&
-    			 setTZeroWait((uint32_t) round(values[8]))    ;
+    			 setTZeroWait((uint32_t) round(values[8]) &&
+    			 setTPWMThreshold((uint32_t) round(values[9])) &&
+    			 setTCoolThreshold((uint32_t) round(values[10])) &&
+    			 setTHighThreshold((uint32_t) round(values[11])) );
         return ISUpdateNumber(RampNP, values, names, n, res) ? 1 : 0; 
     }
     
@@ -643,7 +660,10 @@ bool Stepper::ISUpdateNumber(INumberVectorProperty *NP, double values[], char *n
 int Stepper::ISNewSwitch(ISwitchVectorProperty *MSwitchSP, 
                          const char *name, ISState *states, char *names[], int n) {
     if(!strcmp(name, MSwitchSP->name)) { 
-        bool res=setInvertMotor(states[0]==ISS_ON ? 1 : 0);
+        bool res=setInvertMotor           (states[0]==ISS_ON ? 1 : 0) &&
+                 setEnableStallGuardStop  (states[1]==ISS_ON ? 1 : 0) &&
+                 setChopperHighVelFullstep(states[2]==ISS_ON ? 1 : 0) &&
+                 setChopperHighVel        (states[3]==ISS_ON ? 1 : 0)    ;
 		if(res)
 			IUUpdateSwitch(MSwitchSP, states, names, n);
 		MSwitchSP->s=res ? IPS_OK : IPS_ALERT;

@@ -73,13 +73,13 @@ protected:
     // UI controls
     //
 
-    INumber MotorN[5]={};
+    INumber MotorN[Stepper::MOTORN_SIZE]={};
     INumberVectorProperty MotorNP;
 
-    ISwitch MSwitchS[1]={};
+    ISwitch MSwitchS[Stepper::MSWITCHS_SIZE]={};
     ISwitchVectorProperty MSwitchSP;
 
-    INumber RampN[9]={};
+    INumber RampN[Stepper::RAMPN_SIZE]={};
     INumberVectorProperty RampNP;
 
 };

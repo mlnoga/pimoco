@@ -166,22 +166,22 @@ protected:
     // UI controls
     //
 
-    INumber HAMotorN[5]={};
+    INumber HAMotorN[Stepper::MOTORN_SIZE]={};
     INumberVectorProperty HAMotorNP;
 
-    ISwitch HAMSwitchS[1]={};
+    ISwitch HAMSwitchS[Stepper::MSWITCHS_SIZE]={};
     ISwitchVectorProperty HAMSwitchSP;
 
-    INumber HARampN[9]={};
+    INumber HARampN[Stepper::RAMPN_SIZE]={};
     INumberVectorProperty HARampNP;
 
-    INumber DecMotorN[5]={};
+    INumber DecMotorN[Stepper::MOTORN_SIZE]={};
     INumberVectorProperty DecMotorNP;
 
-    ISwitch DecMSwitchS[1]={};
+    ISwitch DecMSwitchS[Stepper::MSWITCHS_SIZE]={};
     ISwitchVectorProperty DecMSwitchSP;
     
-    INumber DecRampN[9]={};
+    INumber DecRampN[Stepper::RAMPN_SIZE]={};
     INumberVectorProperty DecRampNP;
 
     INumber SlewRatesN[NUM_SLEW_RATES]={};
