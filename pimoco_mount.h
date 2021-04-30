@@ -56,8 +56,8 @@ protected:
     virtual bool Handshake() override;
     virtual void TimerHit() override;
 
-    // Updates HA/Dec rates if guiding timeouts are reached
-    void guiderTimerHit();
+    // Updates HA/Dec rates if guiding timeouts are reached. Returns true on success, else false.
+    bool guiderTimerHit();
 
     virtual bool ReadScopeStatus() override;
 
@@ -76,6 +76,7 @@ protected:
     virtual bool SetSlewRate(int index) override;
 
     virtual bool Sync(double ra, double dec) override;
+    bool SyncHADec(double ha, double dec);
     virtual bool Goto(double ra, double dec) override;
 
     virtual bool SetParkPosition(double Axis1Value, double Axis2Value) override;
@@ -150,9 +151,6 @@ protected:
     // Stores if the scope was tracking before a goto was initiated. Required to work around INDI bug 
     bool    wasTrackingBeforeGoto=false;
 
-    // Park position
-    double parkPositionHA=0, parkPositionDec=0;
-
     // Flag: is guider pulse currently active?
     bool guiderActiveRA=false, guiderActiveDec=false;
 
@@ -187,6 +185,9 @@ protected:
     INumber SlewRatesN[NUM_SLEW_RATES]={};
     INumberVectorProperty SlewRatesNP;
 
+    ISwitch SyncToParkS[1]={};
+    ISwitchVectorProperty SyncToParkSP;
+    
     INumber GuiderSpeedN[1]={};
     INumberVectorProperty GuiderSpeedNP;
 

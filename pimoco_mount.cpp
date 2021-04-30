@@ -151,6 +151,9 @@ bool PimocoMount::initProperties() {
 	IUFillNumber(&SlewRatesN[3], SlewRateS[3].name, SlewRateS[3].label, "%.1f", 0, 1600, 16, 1000);
 	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
+	IUFillSwitch(&SyncToParkS[0], "SYNC_TO_PARK","Sync to park", ISS_OFF);
+	IUFillSwitchVector(&SyncToParkSP, SyncToParkS, 1, getDeviceName(), "SYNC_TO_PARK", "Sync to park", MAIN_CONTROL_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
 	// Guider properties
 	IUFillNumber(&GuiderSpeedN[0], "VALUE", "Rate [x sidereal]", "%.2f", 0, 1, 0.05, 0.75);
 	IUFillNumberVector(&GuiderSpeedNP, GuiderSpeedN, 1, getDeviceName(), "GUIDER_SPEED", "Guider speed", GUIDE_TAB, IP_RW, 0, IPS_IDLE);
@@ -172,6 +175,9 @@ bool PimocoMount::initProperties() {
 	loadConfig(true, GuiderSpeedNP.name);
 	loadConfig(true, GuiderMaxPulseNP.name);
 
+	// load park configuration data and status from file
+	InitPark();
+
     addDebugControl();
  	setDriverInterface(getDriverInterface() | GUIDER_INTERFACE);
 
@@ -189,6 +195,7 @@ bool PimocoMount::updateProperties() {
 
 	if(isConnected()) {
 	    defineProperty(&SlewRatesNP);
+	    defineProperty(&SyncToParkSP);
 
 	    defineProperty(&GuiderSpeedNP);
 	    defineProperty(&GuiderMaxPulseNP);
@@ -197,6 +204,7 @@ bool PimocoMount::updateProperties() {
 
 	} else {
 	    deleteProperty(SlewRatesNP.name);
+	    deleteProperty(SyncToParkSP.name);
 
 	    deleteProperty(GuiderSpeedNP.name);
 	    deleteProperty(GuiderMaxPulseNP.name);
@@ -283,6 +291,9 @@ bool PimocoMount::ISNewSwitch(const char *dev, const char *name, ISState *states
 	} else if(res==0)
 		return false;
 
+	if(!strcmp(name, SyncToParkSP.name))
+		return SyncHADec(GetAxis1Park(), GetAxis2Park());
+
 	return INDI::Telescope::ISNewSwitch(dev, name, states, names, n);
 }
 
@@ -338,6 +349,10 @@ bool PimocoMount::Connect() {
 		return false;
 	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
 
+	// Restore park status. Must be performed after connection
+	if(isParked())
+		SyncHADec(GetAxis1Park(), GetAxis2Park());
+
 	uint32_t pp=getPollingPeriod();
 	if (pp > 0)
 		SetTimer(pp);
@@ -362,27 +377,30 @@ void PimocoMount::TimerHit() {
 	if(!isConnected())
 		return;
 
+	bool rc;
 	if(guiderActiveRA || guiderActiveDec) 
-		guiderTimerHit(); 	// guiding is more time-critical, go first
+		rc=guiderTimerHit(); 	// guiding is time-critical, avoid general scope updates
 	else
-		ReadScopeStatus();
+		rc=ReadScopeStatus();
 
-	/*uint32_t tstepHA, tstepDec;
-	if((!stepperHA.getTStep(&tstepHA)) || (!stepperDec.getTStep(&tstepDec)))
-		LOG_ERROR("Getting tstep");
-	else
-		LOGF_INFO("tstep HA %d Dec %d", tstepHA, tstepDec);
-	*/
-	
+	if(!rc) {
+        EqNP.s = IPS_ALERT;
+        IDSetNumber(&EqNP, nullptr);
+    }
+
 	uint32_t pollingPeriod=getNextTimerInterval();
     SetTimer(pollingPeriod);
 }
 
-void PimocoMount::guiderTimerHit() {
+bool PimocoMount::guiderTimerHit() {
 	uint64_t now=getTimeMillis();
+	bool rc=true;
 
 	if(guiderActiveRA  && guiderTimeoutRA<=now) {
-		stepperHA.setTargetVelocityArcsecPerSec(getTrackRateRA());
+		if(!stepperHA.setTargetVelocityArcsecPerSec(getTrackRateRA())) {
+			LOG_ERROR("Error resetting RA speed after guiding");
+			rc=false;
+		}
 		guiderActiveRA=false;
 		if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
 			LOGF_DEBUG("Guide EW done %d ms after requested pulse", now-guiderTimeoutRA);
@@ -390,12 +408,16 @@ void PimocoMount::guiderTimerHit() {
 	}
 
 	if(guiderActiveDec && guiderTimeoutDec<=now) {
-		stepperDec.setTargetVelocityArcsecPerSec(getTrackRateDec());
+		if(!stepperDec.setTargetVelocityArcsecPerSec(getTrackRateDec())) {
+			LOG_ERROR("Error resetting Dec speed after guiding");
+			rc=false;
+		}
 		guiderActiveDec=false;
 		if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
 			LOGF_DEBUG("Guide NS done %d ms after requested pulse", now-guiderTimeoutDec);
 		GuideComplete(AXIS_DE);
 	}
+	return rc;
 }
 
 bool PimocoMount::ReadScopeStatus() {
@@ -442,7 +464,7 @@ bool PimocoMount::ReadScopeStatus() {
 
         case SCOPE_PARKING:
         	if(stepperHA.hasReachedTargetPos() && stepperDec.hasReachedTargetPos())
-	        	SetParked(true); // updates TrackState and logs
+	        	SetParked(true); // updates TrackState and calls WriteParkData()
         	break;
 
         case SCOPE_PARKED:
@@ -640,6 +662,20 @@ bool PimocoMount::Sync(double ra, double dec) {
 }
 
 
+bool PimocoMount::SyncHADec(double ha, double dec) {
+	double last=getLocalSiderealTime();
+   	double ra  =rangeHA(last - ha); 
+
+   	LOGF_INFO("Syncing position to RA %f (HA %f) Dec %f", ra, ha, dec);
+
+	if(!stepperHA.syncPositionHours(ha) || !stepperDec.syncPositionDegrees(dec) ) {
+		LOG_ERROR("Syncing position");
+		return false;
+	}
+	return true;
+}
+
+
 bool PimocoMount::Goto(double ra, double dec) {
 	double last=getLocalSiderealTime();
    	double ha  =rangeHA(last - ra); 
@@ -675,9 +711,10 @@ bool PimocoMount::Goto(double ra, double dec) {
 
 
 bool PimocoMount::SetParkPosition(double Axis1Value, double Axis2Value) {
-   	parkPositionHA =Axis1Value;
-	parkPositionDec=Axis2Value;
-   	LOGF_INFO("Setting park position to HA %f Dec %f", parkPositionHA, parkPositionDec);
+	SetAxis1Park(Axis1Value);
+	SetAxis2Park(Axis2Value);
+   	LOGF_INFO("Setting park position to HA %f Dec %f", GetAxis1Park(), GetAxis2Park());
+	WriteParkData();
 	return true;
 }
 
@@ -685,32 +722,30 @@ bool PimocoMount::SetCurrentPark() {
 	double localHaHours, decDegrees;
 	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
 		return false;
-	parkPositionHA =localHaHours;
-	parkPositionDec=decDegrees;
-   	LOGF_INFO("Setting park position to current position HA %f Dec %f", parkPositionHA, parkPositionDec);
-	return true;
+	return SetParkPosition(localHaHours, decDegrees);
 }
 
 bool PimocoMount::SetDefaultPark() {
-   	LOG_ERROR("There is no default park position for this mount, please set a custom one");
-	return false;
+	return SetParkPosition(0, 90);
 }
 
 bool PimocoMount::Park() {
-   	LOGF_INFO("Parking at HA %f Dec %f", parkPositionHA, parkPositionDec);
-	if(!stepperHA.setTargetPositionHours(parkPositionHA) || !stepperDec.setTargetPositionDegrees(parkPositionDec) ) {
+	double localHaHours=GetAxis1Park(), decDegrees=GetAxis2Park();
+   	LOGF_INFO("Parking at HA %f Dec %f", localHaHours, decDegrees);
+	if(!stepperHA.setTargetPositionHours(localHaHours) || !stepperDec.setTargetPositionDegrees(decDegrees) ) {
 		LOG_ERROR("Parking");
 		return false;
 	}
  
     TrackState = SCOPE_PARKING;
+    // 	SetParked() and thus WriteParkData() happens in TimerHit() once the scope has reached position
     guiderActiveRA=false;
     guiderActiveDec=false;
   	return true;
 }
 
 bool PimocoMount::UnPark() {
-	SetParked(false); // updates TrackState and logs
+	SetParked(false); // Updates TrackState to idle and calls WriteParkData(). However, Indi does not restore the prior tracking state of the scope after parking
     guiderActiveRA=false;
     guiderActiveDec=false;
 	return true;
