@@ -19,7 +19,6 @@
 
 #include "pimoco_mount.h"
 #include <libindi/indilogger.h>
-#include <libindi/indicom.h>  // for rangeHA etc.
 
 
 IPState PimocoMount::GuideNorth(uint32_t ms) {
@@ -120,4 +119,41 @@ IPState PimocoMount::GuideWest(uint32_t ms) {
 	//LOGF_INFO("Guide west %d ms speed %f", ms, arcsecPerSec);
 
 	return IPS_BUSY;
+}
+
+bool PimocoMount::guiderTimerHit() {
+	uint64_t now=getTimeMillis();
+	bool rc=true;
+
+	if(guiderActiveRA  && guiderTimeoutRA<=now) {
+		if(!stepperHA.setTargetVelocityArcsecPerSec(getTrackRateRA())) {
+			LOG_ERROR("Error resetting RA speed after guiding");
+			rc=false;
+		}
+		guiderActiveRA=false;
+		if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Guide EW done %d ms after requested pulse", now-guiderTimeoutRA);
+		GuideComplete(AXIS_RA);
+	}
+
+	if(guiderActiveDec && guiderTimeoutDec<=now) {
+		if(!stepperDec.setTargetVelocityArcsecPerSec(getTrackRateDec())) {
+			LOG_ERROR("Error resetting Dec speed after guiding");
+			rc=false;
+		}
+		guiderActiveDec=false;
+		if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("Guide NS done %d ms after requested pulse", now-guiderTimeoutDec);
+		GuideComplete(AXIS_DE);
+	}
+	return rc;
+}
+
+
+uint32_t PimocoMount::getGuiderTimerInterval() {
+	if(guiderActiveRA && (!guiderActiveDec || guiderTimeoutRA<=guiderTimeoutDec))
+		return guiderTimeoutRA - getTimeMillis();
+	else if(guiderActiveDec)
+		return guiderTimeoutDec- getTimeMillis();
+	return (uint32_t) 0x0ffffffff;
 }

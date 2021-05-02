@@ -5,7 +5,9 @@ DEPS_FOCUSER=$(patsubst %.cpp,%.d,$(SRCS_FOCUSER))
 LFLAGS_FOCUSER=-lindidriver -lwiringPi
 
 TARGET_MOUNT=indi_pimoco_mount
-SRCS_MOUNT=pimoco_mount.cpp  pimoco_mount_guide.cpp  pimoco_spi.cpp  pimoco_stepper.cpp  pimoco_tmc5160.cpp
+SRCS_MOUNT=pimoco_mount.cpp  pimoco_mount_ui.cpp pimoco_mount_timer.cpp \
+           pimoco_mount_track.cpp  pimoco_mount_move.cpp  pimoco_mount_guide.cpp  pimoco_mount_goto.cpp  pimoco_mount_park.cpp  \
+           pimoco_mount_limits.cpp  pimoco_spi.cpp  pimoco_stepper.cpp  pimoco_tmc5160.cpp
 OBJS_MOUNT=$(patsubst %.cpp,%.o,$(SRCS_MOUNT))
 DEPS_MOUNT=$(patsubst %.cpp,%.d,$(SRCS_MOUNT))
 LFLAGS_MOUNT=-lindidriver -lnova -lwiringPi
