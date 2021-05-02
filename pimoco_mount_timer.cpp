@@ -65,14 +65,14 @@ bool PimocoMount::ReadScopeStatus() {
 	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
 		return false;
 
-	// update pier side based on hour angle (basic approach) 
-	//auto pierSide=(localHaHours<0) ? PIER_WEST : PIER_EAST;
-	//setPierSide(pierSide);
-
  	// calculate RA and Dec
    	double last=getLocalSiderealTime();
    	double raHours=range24(last - localHaHours); 
-   	decDegrees=rangeDec(decDegrees);
+   	decDegrees=rangeDecNative(decDegrees);
+
+    // update pier side based on native Dec position 
+    TelescopePierSide pierSide=(abs(decDegrees)<=90) ? PIER_EAST : PIER_WEST;
+    setPierSide(pierSide);
 
 	switch(TrackState) {
         case SCOPE_IDLE:

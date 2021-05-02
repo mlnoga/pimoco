@@ -105,7 +105,7 @@ PimocoMount::PimocoMount() : stepperHA(getDeviceName(), HA_DIAG0_PIN), stepperDe
             TELESCOPE_CAN_ABORT |
             TELESCOPE_HAS_TIME |
             TELESCOPE_HAS_LOCATION |
-            // TELESCOPE_HAS_PIER_SIDE |
+            TELESCOPE_HAS_PIER_SIDE |
             // TELESCOPE_HAS_PEC |
             TELESCOPE_HAS_TRACK_MODE |
             TELESCOPE_CAN_CONTROL_TRACK |
@@ -190,4 +190,13 @@ uint64_t PimocoMount::getTimeMillis() {
 	clock_gettime(CLOCK_REALTIME, &now);
 
 	return ((uint64_t)now.tv_sec)*1000 + ((uint64_t)now.tv_nsec)/1000000;
+}
+
+double PimocoMount::rangeDecNative(double r) {
+    double res = r;
+    while (res < -180.0)
+        res += 360.0;
+    while (res >= 180.0)
+        res -= 360.0;
+    return res;
 }

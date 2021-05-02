@@ -106,6 +106,8 @@ protected:
     // Returns current realtime clock in milliseconds
     static uint64_t getTimeMillis();
 
+    // Converts given value into native dec range of [-180,180) degrees
+    static double rangeDecNative(double r);
 
     // Internal tracking methods
     //
