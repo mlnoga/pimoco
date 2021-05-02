@@ -20,7 +20,6 @@
 #include "pimoco_mount.h"
 #include <libindi/indilogger.h>
 #include <libindi/indicom.h>  // for rangeHA etc.
-#include <libnova/transform.h> // for ln_get_hrz_from_equ
 
 
 bool PimocoMount::Sync(double ra, double dec) {
@@ -53,18 +52,14 @@ bool PimocoMount::SyncHADec(double ha, double dec) {
 
 bool PimocoMount::Goto(double ra, double dec) {
     // check alt limits, abort if target lies outside
-   	struct ln_equ_posn equ={ra, dec};
-   	double jd=ln_get_julian_from_sys();
-   	struct ln_hrz_posn hrz;
-   	ln_get_hrz_from_equ(&equ, &lnobserver, jd, &hrz);
-   	if(hrz.alt<AltLimitsN[0].value || hrz.alt>AltLimitsN[1].value) {
-   		LOGF_ERROR("Goto RA %f Dec %f has Az %f Alt %f outside mount altitude limits [%f, %f]", 
-   			       ra, dec, hrz.az, hrz.alt, AltLimitsN[0].value, AltLimitsN[1].value);
+	if(!checkLimitsPos(ra, dec)) {
+   		LOGF_ERROR("Goto RA %f Dec %f outside mount altitude limits [%f, %f]", 
+   			       ra, dec, AltLimitsN[0].value, AltLimitsN[1].value);
    		return false;
    	}
 
    	// convert RA to hour angle to prepare goto
-	double last=getLocalSiderealTime(jd);
+	double last=getLocalSiderealTime();
    	double ha  =rangeHA(last - ra); 
    	LOGF_INFO("Goto RA %f (HA %f) Dec %f", ra, ha, dec);
 

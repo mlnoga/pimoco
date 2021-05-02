@@ -48,6 +48,10 @@ public:
     // Updates number vector property with the given values if res is true and display status IPS_OK, else display status IPS_ALERT. Returns res for convenience. 
     bool ISUpdateNumber(INumberVectorProperty *NP, double values[], char *names[], int n, bool res);
 
+    enum {
+        TRACK_KING = TRACK_CUSTOM+1,
+    };
+
 protected:
     virtual bool saveConfigItems(FILE *fp) override;
 
@@ -63,6 +67,9 @@ protected:
 
     // Returns next timer interval in milliseconds. Guiding has priority, then Goto tracking, else base polling rate. 
     uint32_t getNextTimerInterval();
+
+    // Returns next guider timer interval in milliseconds. 
+    uint32_t getGuiderTimerInterval();
 
 
     virtual bool Abort() override;
@@ -90,7 +97,10 @@ protected:
     virtual IPState GuideEast(uint32_t ms) override;
     virtual IPState GuideWest(uint32_t ms) override;
 
-    // Returns local apparent sidereal time in hours
+    // Returns local apparent sidereal time in hours for given Julian day number
+    double getLocalSiderealTime(double julianDay);
+
+    // Returns local apparent sidereal time in hours now
     double getLocalSiderealTime();
 
     // Returns current realtime clock in milliseconds
@@ -114,12 +124,23 @@ protected:
         uint8_t mode=getTrackMode();
         return (mode==TRACK_CUSTOM) ? trackRateCustomDec : 0;
     }
- 
-    // Enables tracking on RA axis only. For partial resumption of tracking once RA slew has reached its target
-    bool SetTrackEnabledRA();
 
-    // Enables tracking on Dec axis only. For partial resumption of tracking once Dec slew has reached its target
-    bool SetTrackEnabledDec();
+    // Apply current tracking status, mode and rate to steppers. Checks mount limits and resets scope to idle if violated. Returns true on success, else failure 
+    bool applyTracking(bool updateRA=true, bool updateDec=true);
+
+
+    // Checks given position against mount limits. Returns true if within bounds, else false 
+    bool checkLimitsPos(double ra, double dec, bool log=true);
+
+    // Checks given position and direction of motion against mount limits. Returns true if motion OK, else false 
+    bool checkLimitsPosSpeed(double ra, double dec, double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
+
+    // Applies mount limits to current position. Stops all motion and updates scope status if out of bounds. Returns true if within bounds, else false 
+    bool applyLimitsPos(bool log=true);
+
+    // Applies mount limits to current position and direction of motion. Stops all motion and updates scope status if out of bounds and in wrong direction. Returns true if motion OK, else false 
+    bool applyLimitsPosSpeed(double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
+
 
     // Physical pin numbers on Raspberry Pi connector for stepper DIAG0 lines 
     enum {
@@ -145,13 +166,16 @@ protected:
     // Custom tracking rates for both axes. Active only in mode TRACK_CUSTOM
     double  trackRateCustomRA =trackRates[TRACK_CUSTOM], trackRateCustomDec=0;    
 
+    // Stores if the scope was tracking before a goto slew was initiated. Required to work around INDI bug 
+    bool    wasTrackingBeforeSlew=false;
+
     // Target position for gotos. For periodic refresh of the HA-based actual hardware gotos as time progresses
     double  gotoTargetRA=0, gotoTargetDec=0;
 
-    // Stores if the scope was tracking before a goto was initiated. Required to work around INDI bug 
-    bool    wasTrackingBeforeGoto=false;
+    // Manual slewing speed active on the given axis, or zero if inactive
+    double manualSlewArcsecPerSecRA=0, manualSlewArcsecPerSecDec=0;
 
-    // Flag: is guider pulse currently active?
+    // Flag: guider pulse currently active on the given axis
     bool guiderActiveRA=false, guiderActiveDec=false;
 
     // Timeouts for guider pulse
@@ -193,6 +217,9 @@ protected:
 
     INumber GuiderMaxPulseN[1]={};
     INumberVectorProperty GuiderMaxPulseNP;
+
+    INumber AltLimitsN[2]={};
+    INumberVectorProperty AltLimitsNP;
 
 public:
     // Names of the mount configuration tabs

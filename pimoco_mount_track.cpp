@@ -71,7 +71,7 @@ bool PimocoMount::applyTracking(bool updateRA, bool updateDec) {
 	double rateRA =(TrackState==SCOPE_TRACKING) ? getTrackRateRA()  : 0;
 	double rateDec=(TrackState==SCOPE_TRACKING) ? getTrackRateDec() : 0;
 
-	if(!checkMotionAgainstMountLimitsAndStopIfReached(rateRA, rateDec))
+	if(!applyLimitsPosSpeed(rateRA, rateDec))
 		return false;
 
 	if((updateRA  && !stepperHA .setTargetVelocityArcsecPerSec(rateRA )) ||

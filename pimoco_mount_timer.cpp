@@ -77,7 +77,7 @@ bool PimocoMount::ReadScopeStatus() {
 	switch(TrackState) {
         case SCOPE_IDLE:
         	if(manualSlewArcsecPerSecRA!=0 || manualSlewArcsecPerSecDec!=0)
-        		if(!checkMotionAgainstMountLimitsAndStopIfReached(manualSlewArcsecPerSecRA, manualSlewArcsecPerSecDec))
+        		if(!applyLimitsPosSpeed(manualSlewArcsecPerSecRA, manualSlewArcsecPerSecDec))
         			return false;
         	break;
 
@@ -102,7 +102,7 @@ bool PimocoMount::ReadScopeStatus() {
 
         case SCOPE_TRACKING:
         	if(manualSlewArcsecPerSecRA!=0 || manualSlewArcsecPerSecDec!=0) {
-        		if(!checkMotionAgainstMountLimitsAndStopIfReached(manualSlewArcsecPerSecRA, manualSlewArcsecPerSecDec))
+        		if(!applyLimitsPosSpeed(manualSlewArcsecPerSecRA, manualSlewArcsecPerSecDec))
         			return false;
         	} else
 			    applyTracking();
