@@ -82,9 +82,16 @@ protected:
     virtual bool MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) override;
     virtual bool SetSlewRate(int index) override;
 
-    virtual bool Sync(double ra, double dec) override;
-    bool SyncHADec(double ha, double dec);
-    virtual bool Goto(double ra, double dec) override;
+    virtual bool Sync(double equRA, double equDec) override;
+
+    // Syncs to given device HA/Dec coordinates
+    bool SyncDeviceHADec(double deviceHA, double deviceDec);
+
+    virtual bool Goto(double equRA, double equDec) override; 
+
+    // Executes a goto command to given equatorial RA, Dec and pier side. If pier side is not forced, also tries the other side
+    // to meet mount limits. Returns immediately with true on success, false on failure.
+    bool Goto(double equRA, double equDec, TelescopePierSide equPS, bool forcePierSide);
 
     virtual bool SetParkPosition(double Axis1Value, double Axis2Value) override;
     virtual bool SetCurrentPark() override;
@@ -131,14 +138,20 @@ protected:
     bool applyTracking(bool updateRA=true, bool updateDec=true);
 
 
-    // Checks given position against mount limits. Returns true if within bounds, else false 
-    bool checkLimitsPos(double ra, double dec, bool log=true);
+    // Converts device coordinates to equatorial coordinates. If local sidereal time is not given, uses current time 
+    void equatorialFromDevice(double *equRA, double *equDec, TelescopePierSide *equPS, double deviceHA, double deviceDec, double lst=NAN);
+
+    // Converts equatorial coordinates into device coordinates. If local sidereal time is not given, uses current time 
+    void deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst=NAN);
+
+    // Checks given equatorial position against mount altitude limits. Returns true if within bounds, else false 
+    bool checkLimitsPosAlt(double equRA, double equDec);
+
+    // Checks given device position against mount hour angle limits. Returns true if within bounds, else false 
+    bool checkLimitsPosHA(double deviceHA, double deviceDec);
 
     // Checks given position and direction of motion against mount limits. Returns true if motion OK, else false 
-    bool checkLimitsPosSpeed(double ra, double dec, double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
-
-    // Applies mount limits to current position. Stops all motion and updates scope status if out of bounds. Returns true if within bounds, else false 
-    bool applyLimitsPos(bool log=true);
+    bool checkLimitsPosSpeed(double equRA, double equDec, TelescopePierSide equPS, double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
 
     // Applies mount limits to current position and direction of motion. Stops all motion and updates scope status if out of bounds and in wrong direction. Returns true if motion OK, else false 
     bool applyLimitsPosSpeed(double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
@@ -171,8 +184,11 @@ protected:
     // Stores if the scope was tracking before a goto slew was initiated. Required to work around INDI bug 
     bool    wasTrackingBeforeSlew=false;
 
-    // Target position for gotos. For periodic refresh of the HA-based actual hardware gotos as time progresses
+    // Target equatorial position for gotos. For periodic refresh of the HA-based actual hardware gotos as time progresses
     double  gotoTargetRA=0, gotoTargetDec=0;
+
+    // Target side of pier for gotos
+    TelescopePierSide gotoTargetPS=PIER_EAST;
 
     // Manual slewing speed active on the given axis, or zero if inactive
     double manualSlewArcsecPerSecRA=0, manualSlewArcsecPerSecDec=0;
@@ -186,6 +202,7 @@ protected:
     enum {
         NUM_SLEW_RATES = 4
     } SlewRatesType;
+
 
     // UI controls
     //
@@ -220,8 +237,12 @@ protected:
     INumber GuiderMaxPulseN[1]={};
     INumberVectorProperty GuiderMaxPulseNP;
 
+    INumber HALimitsN[2]={};
+    INumberVectorProperty HALimitsNP;
+
     INumber AltLimitsN[2]={};
     INumberVectorProperty AltLimitsNP;
+
 
 public:
     // Names of the mount configuration tabs

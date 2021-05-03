@@ -24,6 +24,10 @@
 bool PimocoMount::initProperties() {
 	if(!INDI::Telescope::initProperties()) 
 		return false;
+	// Make pier side writable to allow triggering of meridian flips (INDI::Telescope has readonly)
+    IUFillSwitchVector(&PierSideSP, PierSideS, 2, getDeviceName(), "TELESCOPE_PIER_SIDE", "Pier Side", MAIN_CONTROL_TAB,
+                       IP_RW, ISR_ATMOST1, 60, IPS_IDLE);
+
  	initGuiderProperties(getDeviceName(), GUIDE_TAB); // returns void, cannot fail
 
 	// Create the four standard tracking modes
@@ -45,8 +49,12 @@ bool PimocoMount::initProperties() {
 	IUFillNumber(&SlewRatesN[3], SlewRateS[3].name, SlewRateS[3].label, "%.1f", 0, 1600, 16, 1000);
 	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
-	IUFillNumber(&AltLimitsN[0], "MIN", "Min [°]", "%.1f", -5, 90, 1,  0);
-	IUFillNumber(&AltLimitsN[1], "MAX", "Max [°]", "%.1f", -5, 90, 1, 90);
+	IUFillNumber(&HALimitsN[0], "MIN", "Min [hh:mm:ss]", "%010.6m", -12, 12, 0.25, -6.5);
+	IUFillNumber(&HALimitsN[1], "MAX", "Max [hh:mm:ss]", "%010.6m", -12, 12, 0.25,  6.5);
+	IUFillNumberVector(&HALimitsNP, HALimitsN, 2, getDeviceName(), "HA_LIMITS", "Hour angle limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
+
+	IUFillNumber(&AltLimitsN[0], "MIN", "Min [dd:mm:ss]", "%010.6m", -5, 90, 1,  0);
+	IUFillNumber(&AltLimitsN[1], "MAX", "Max [dd:mm:ss]", "%010.6m", -5, 90, 1, 90);
 	IUFillNumberVector(&AltLimitsNP, AltLimitsN, 2, getDeviceName(), "ALT_LIMITS", "Altitude limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
 	IUFillSwitch(&SyncToParkS[0], "SYNC_TO_PARK","Sync to park", ISS_OFF);
@@ -69,6 +77,7 @@ bool PimocoMount::initProperties() {
 	loadConfig(true, DecRampNP.name);
 
 	loadConfig(true, SlewRatesNP.name);
+	loadConfig(true, HALimitsNP.name);
 	loadConfig(true, AltLimitsNP.name);
 
 	loadConfig(true, GuiderSpeedNP.name);
@@ -94,6 +103,7 @@ bool PimocoMount::updateProperties() {
 
 	if(isConnected()) {
 	    defineProperty(&SlewRatesNP);
+	    defineProperty(&HALimitsNP);
 	    defineProperty(&AltLimitsNP);
 	    defineProperty(&SyncToParkSP);
 
@@ -104,6 +114,7 @@ bool PimocoMount::updateProperties() {
 
 	} else {
 	    deleteProperty(SlewRatesNP.name);
+	    deleteProperty(HALimitsNP.name);
 	    deleteProperty(AltLimitsNP.name);
 	    deleteProperty(SyncToParkSP.name);
 
@@ -162,6 +173,13 @@ bool PimocoMount::ISNewNumber(const char *dev, const char *name, double values[]
         return rc;
 	}
 
+	if(!strcmp(name, HALimitsNP.name)) {
+        auto rc=ISUpdateNumber(&HALimitsNP, values, names, n, true);
+        if(rc)
+	        saveConfig(true, HALimitsNP.name);
+        return rc;
+	}
+
 	if(!strcmp(name, AltLimitsNP.name)) {
         auto rc=ISUpdateNumber(&AltLimitsNP, values, names, n, true);
         if(rc)
@@ -209,7 +227,15 @@ bool PimocoMount::ISNewSwitch(const char *dev, const char *name, ISState *states
 		return false;
 
 	if(!strcmp(name, SyncToParkSP.name))
-		return SyncHADec(GetAxis1Park(), GetAxis2Park());
+		return SyncDeviceHADec(GetAxis1Park(), GetAxis2Park());
+
+	if(!strcmp(name, PierSideSP.name)) {
+		TelescopePierSide newPS= (PierSideS[PIER_WEST].s==ISS_ON) ? PIER_WEST : PIER_EAST;
+		bool rc=Goto(EqN[0].value, EqN[1].value, newPS, true);
+	    PierSideSP.s=rc ? IPS_OK : IPS_ALERT;
+        IDSetSwitch(&PierSideSP, nullptr);
+        return rc;
+	}
 
 	return INDI::Telescope::ISNewSwitch(dev, name, states, names, n);
 }
@@ -242,6 +268,7 @@ bool PimocoMount::saveConfigItems(FILE *fp){
     IUSaveConfigNumber(fp, &DecRampNP);
 
     IUSaveConfigNumber(fp, &SlewRatesNP);
+    IUSaveConfigNumber(fp, &HALimitsNP);
     IUSaveConfigNumber(fp, &AltLimitsNP);
 
     IUSaveConfigNumber(fp, &GuiderSpeedNP);

@@ -22,13 +22,20 @@
 #include <libindi/indicom.h>  // for rangeHA etc.
 
 
-bool PimocoMount::Sync(double ra, double dec) {
-	double last=getLocalSiderealTime();
-   	double ha  =rangeHA(last - ra); 
+bool PimocoMount::Sync(double equRA, double equDec) {
+    LOGF_INFO("Syncing to equatorial position RA %f Dec", equRA, equDec);
 
-   	LOGF_INFO("Syncing position to RA %f (HA %f) Dec %f", ra, ha, dec);
+    double deviceHA, deviceDec;
+    deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, getPierSide());
 
-	if(!stepperHA.syncPositionHours(ha) || !stepperDec.syncPositionDegrees(dec) ) {
+    return SyncDeviceHADec(deviceHA, deviceDec);
+}
+
+
+bool PimocoMount::SyncDeviceHADec(double deviceHA, double deviceDec) {
+   	LOGF_INFO("Syncing to device position HA %f Dec %f", deviceHA, deviceDec);
+
+	if(!stepperHA.syncPositionHours(deviceHA) || !stepperDec.syncPositionDegrees(deviceDec) ) {
 		LOG_ERROR("Syncing position");
 		return false;
 	}
@@ -36,32 +43,34 @@ bool PimocoMount::Sync(double ra, double dec) {
 }
 
 
-bool PimocoMount::SyncHADec(double ha, double dec) {
-	double last=getLocalSiderealTime();
-   	double ra  =rangeHA(last - ha); 
+bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, bool forcePierSide) {
+    if(!checkLimitsPosAlt(equRA, equDec)) {
+        LOGF_ERROR("Goto RA %f Dec %f outside mount altitude limits [%f, %f]", 
+                   equRA, equDec, AltLimitsN[0].value, AltLimitsN[1].value);
+        return false;
+    }
 
-   	LOGF_INFO("Syncing position to RA %f (HA %f) Dec %f", ra, ha, dec);
+    double deviceHA, deviceDec;
+    deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
 
-	if(!stepperHA.syncPositionHours(ha) || !stepperDec.syncPositionDegrees(dec) ) {
-		LOG_ERROR("Syncing position");
-		return false;
-	}
-	return true;
-}
+    if(!checkLimitsPosHA(deviceHA, deviceDec)) {
+        if(forcePierSide) {
+            LOGF_ERROR("Goto RA %f Dec %f %s outside mount HA limits [%f, %f]",
+                       equRA, equDec, getPierSideStr(equPS), HALimitsN[0].value, HALimitsN[1].value);
+            return false;
+        } else { // try meridian flip
+            equPS= (equPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
+            deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
 
+            if(!checkLimitsPosHA(deviceHA, deviceDec))  {
+                LOGF_ERROR("Goto RA %f Dec %f outside mount HA limits [%f, %f] on both pier sides",
+                           equRA, equDec, HALimitsN[0].value, HALimitsN[1].value);
+                return false;
+            }
+        }
+    }
 
-bool PimocoMount::Goto(double ra, double dec) {
-    // check alt limits, abort if target lies outside
-	if(!checkLimitsPos(ra, dec)) {
-   		LOGF_ERROR("Goto RA %f Dec %f outside mount altitude limits [%f, %f]", 
-   			       ra, dec, AltLimitsN[0].value, AltLimitsN[1].value);
-   		return false;
-   	}
-
-   	// convert RA to hour angle to prepare goto
-	double last=getLocalSiderealTime();
-   	double ha  =rangeHA(last - ra); 
-   	LOGF_INFO("Goto RA %f (HA %f) Dec %f", ra, ha, dec);
+   	LOGF_INFO("Goto equatorial RA %f Dec %f %s device HA %f Dec %f", equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec);
 
  	if(TrackState==SCOPE_TRACKING)
  		wasTrackingBeforeSlew=true;
@@ -70,15 +79,16 @@ bool PimocoMount::Goto(double ra, double dec) {
  	else
  		; // don't touch
 
-	if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0) || 
-	   !stepperDec.setTargetPositionDegrees(dec, wasTrackingBeforeSlew ? stepperDec.arcsecPerSecToNative(getTrackRateDec()) : 0) ) {
+	if(!stepperHA.setTargetPositionHours(deviceHA, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0) || 
+	   !stepperDec.setTargetPositionDegrees(deviceDec, wasTrackingBeforeSlew ? stepperDec.arcsecPerSecToNative(getTrackRateDec()) : 0) ) {
 		LOG_ERROR("Goto");
 		return false;
 	}
 
-	// cache target ra/dec for periodic reissue of ha-based target given progressing time
-	gotoTargetRA=ra;
-	gotoTargetDec=dec;
+	// cache target equatorial ra/dec/pier side for periodic reissue of HA-based device targets as time proceeds
+	gotoTargetRA =equRA;  
+	gotoTargetDec=equDec;
+    gotoTargetPS =equPS;
   	manualSlewArcsecPerSecRA=manualSlewArcsecPerSecDec=0;
 	guiderActiveRA=guiderActiveDec=false;
 
@@ -86,4 +96,9 @@ bool PimocoMount::Goto(double ra, double dec) {
 
     TrackState = SCOPE_SLEWING;
   	return true;
+}
+
+
+bool PimocoMount::Goto(double equRA, double equDec) {
+    return Goto(equRA, equDec, getPierSide(), true);
 }

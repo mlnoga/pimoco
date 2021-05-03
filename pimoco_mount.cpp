@@ -151,7 +151,7 @@ bool PimocoMount::Connect() {
 
 	// Restore park status. Must be performed after connection
 	if(isParked())
-		SyncHADec(GetAxis1Park(), GetAxis2Park());
+		SyncDeviceHADec(GetAxis1Park(), GetAxis2Park());
 
 	uint32_t pp=getPollingPeriod();
 	if (pp > 0)

@@ -60,19 +60,15 @@ uint32_t PimocoMount::getNextTimerInterval() {
 
 
 bool PimocoMount::ReadScopeStatus() {
-	// get local hour angle and declination angle from scope
-	double localHaHours, decDegrees;
-	if(!stepperHA.getPositionHours(&localHaHours) || !stepperDec.getPositionDegrees(&decDegrees))
+	double deviceHA, deviceDec, equRA, equDec; // hour angle and RA in hours, declination in degrees
+    TelescopePierSide equPS;
+
+	if(!stepperHA.getPositionHours(&deviceHA) || !stepperDec.getPositionDegrees(&deviceDec))
 		return false;
 
- 	// calculate RA and Dec
-   	double last=getLocalSiderealTime();
-   	double raHours=range24(last - localHaHours); 
-   	decDegrees=rangeDecNative(decDegrees);
-
-    // update pier side based on native Dec position 
-    TelescopePierSide pierSide=(abs(decDegrees)<=90) ? PIER_EAST : PIER_WEST;
-    setPierSide(pierSide);
+    equatorialFromDevice(&equRA, &equDec, &equPS, deviceHA, deviceDec);
+    NewRaDec(equRA, equDec); 
+    setPierSide(equPS);
 
 	switch(TrackState) {
         case SCOPE_IDLE:
@@ -84,9 +80,9 @@ bool PimocoMount::ReadScopeStatus() {
         case SCOPE_SLEWING:
     		if(!stepperHA.hasReachedTargetPos()) {
 	        	// while HA axis is moving, reissue HA goto command updated with current time
-				double last=getLocalSiderealTime();
-	   			double ha  =rangeHA(last - gotoTargetRA); 
-				if(!stepperHA.setTargetPositionHours(ha, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0 )) {
+                double deviceHA, deviceDec;
+                deviceFromEquatorial(&deviceHA, &deviceDec, gotoTargetRA, gotoTargetDec, gotoTargetPS);
+				if(!stepperHA.setTargetPositionHours(deviceHA, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0 )) {
 					LOG_ERROR("Updating goto HA target");
 					return false;
 				}
@@ -117,7 +113,6 @@ bool PimocoMount::ReadScopeStatus() {
         	break;  // do nothing 
    	}
 
-    NewRaDec(raHours, decDegrees); 
 
 	return true;
 }
