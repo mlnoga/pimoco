@@ -20,9 +20,6 @@
 #include "pimoco_mount.h"
 #include <libindi/indilogger.h>
 #include <libindi/indicom.h>  // for rangeHA etc.
-#include <libnova/julian_day.h>
-#include <libnova/sidereal_time.h>
-#include <libnova/transform.h>
 #include <time.h>
 
 #define CDRIVER_VERSION_MAJOR	1
@@ -173,16 +170,8 @@ bool PimocoMount::Handshake() {
 	return true;
 }
 
-double PimocoMount::getLocalSiderealTime(double julianDay) {
-   	double gast=ln_get_apparent_sidereal_time(julianDay);
- 	double observerLongitudeDegreesEastPositive=LocationN[LOCATION_LONGITUDE].value;
- 	double last=gast + observerLongitudeDegreesEastPositive/15.0;
- 	return last;	
-}
-
 double PimocoMount::getLocalSiderealTime() {
-   	double julianDay=ln_get_julian_from_sys();
-   	return getLocalSiderealTime(julianDay);
+   	return get_local_sidereal_time(LocationN[LOCATION_LONGITUDE].value);
 }
 
 uint64_t PimocoMount::getTimeMillis() {
