@@ -104,9 +104,6 @@ protected:
     virtual IPState GuideEast(uint32_t ms) override;
     virtual IPState GuideWest(uint32_t ms) override;
 
-    // Returns local apparent sidereal time in hours for given Julian day number
-    double getLocalSiderealTime(double julianDay);
-
     // Returns local apparent sidereal time in hours now
     double getLocalSiderealTime();
 
@@ -138,11 +135,11 @@ protected:
     bool applyTracking(bool updateRA=true, bool updateDec=true);
 
 
-    // Converts device coordinates to equatorial coordinates. If local sidereal time is not given, uses current time 
-    void equatorialFromDevice(double *equRA, double *equDec, TelescopePierSide *equPS, double deviceHA, double deviceDec, double lst=NAN);
+    // Converts device coordinates to equatorial coordinates. If local sidereal time below zero is given, uses current time 
+    void equatorialFromDevice(double *equRA, double *equDec, TelescopePierSide *equPS, double deviceHA, double deviceDec, double lst=-1);
 
-    // Converts equatorial coordinates into device coordinates. If local sidereal time is not given, uses current time 
-    void deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst=NAN);
+    // Converts equatorial coordinates into device coordinates. If local sidereal time below zero is given, uses current time 
+    void deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst=-1);
 
     // Checks given equatorial position against mount altitude limits. Returns true if within bounds, else false 
     bool checkLimitsPosAlt(double equRA, double equDec);
