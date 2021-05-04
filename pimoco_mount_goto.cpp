@@ -55,7 +55,7 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
 
     if(!checkLimitsPosHA(deviceHA, deviceDec)) {
         if(forcePierSide) {
-            LOGF_ERROR("Goto RA %f Dec %f %s outside mount HA limits [%f, %f]",
+            LOGF_ERROR("Goto RA %f Dec %f pier %s outside mount HA limits [%f, %f]",
                        equRA, equDec, getPierSideStr(equPS), HALimitsN[0].value, HALimitsN[1].value);
             return false;
         } else { // try meridian flip
@@ -70,7 +70,7 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
         }
     }
 
-   	LOGF_INFO("Goto equatorial RA %f Dec %f %s device HA %f Dec %f", equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec);
+   	LOGF_INFO("Goto equatorial RA %f Dec %f pier %s device HA %f Dec %f", equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec);
 
  	if(TrackState==SCOPE_TRACKING)
  		wasTrackingBeforeSlew=true;

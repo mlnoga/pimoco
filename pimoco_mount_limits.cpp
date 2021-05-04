@@ -21,8 +21,6 @@
 #include <libindi/indilogger.h>
 #include <libindi/indicom.h>  // for rangeHA etc.
 #include <libnova/julian_day.h>
-#include <libnova/sidereal_time.h>
-#include <libnova/transform.h>
 
 
 void PimocoMount::equatorialFromDevice(double *equRA, double *equDec, TelescopePierSide *equPS, double deviceHA, double deviceDec, double lst) {
@@ -37,16 +35,19 @@ void PimocoMount::equatorialFromDevice(double *equRA, double *equDec, TelescopeP
         *equDec=rangeDec(180.0-deviceDec);
     }
 
-    if(isnan(lst))
+    if(lst<0)
         lst=getLocalSiderealTime();
     *equRA=range24(lst - equHA);
+
+    LOGF_INFO("eqFromDev: device HA %f Dec %f >> equ HA %f RA %f Dec %f pier %d %s @ lst %f", 
+              deviceHA, deviceDec, equHA, *equRA, *equDec, *equPS, getPierSideStr(*equPS), lst);
 }
 
 
 void PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst) {
-    if(isnan(lst))
+    if(lst<0)
         lst=getLocalSiderealTime();
-    double equHA=range24(lst - equRA);
+    double equHA=rangeHA(lst - equRA);
 
     if(equPS==PIER_EAST || equPS==PIER_UNKNOWN) {
         // normal pointing state, east pointing west
@@ -57,6 +58,15 @@ void PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, doub
         *deviceHA =rangeHA(equHA-12);
         *deviceDec=180.0-rangeDec(equDec);
     }
+
+    LOGF_INFO("devFromEq: device HA %f Dec %f from equ HA %f RA %f Dec %f pier %d %s @ lst %f", 
+              *deviceHA, *deviceDec, equHA, equRA, equDec, equPS, getPierSideStr(equPS), lst);
+    /*LOGF_INFO("devFromEq: device HA %f Dec %f", 
+              *deviceHA, *deviceDec);
+    LOGF_INFO("devFromEq: equ HA %f RA %f Dec %f pier %d %s", 
+              equHA, equRA, equDec, equPS, getPierSideStr(equPS));
+    LOGF_INFO("devFromEq: @ lst %f", 
+              lst); */
 }
 
 
@@ -65,7 +75,7 @@ bool PimocoMount::checkLimitsPosAlt(double equRA, double equDec) {
    	struct ln_equ_posn equ_t0={equRA, equDec};
    	double jd=ln_get_julian_from_sys();
    	struct ln_hrz_posn hrz_t0;
-   	ln_get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hrz_t0);
+   	get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hrz_t0);
 
     // check alt limits
    	bool inside_t0=(hrz_t0.alt>=AltLimitsN[0].value) && (hrz_t0.alt<=AltLimitsN[1].value);
@@ -77,7 +87,15 @@ bool PimocoMount::checkLimitsPosAlt(double equRA, double equDec) {
 
 
 bool PimocoMount::checkLimitsPosHA(double deviceHA, double deviceDec) {
-    return (deviceHA>=HALimitsN[0].value) && (deviceHA<=HALimitsN[1].value);
+    if(HALimitsN[0].value <= HALimitsN[1].value) {
+        // -------------|#####################|----------
+        //             min    valid          max
+        return (deviceHA>=HALimitsN[0].value) && (deviceHA<=HALimitsN[1].value);
+    } else {
+        // #############|---------------------|##########
+        //             max    valid          min
+        return (deviceHA>=HALimitsN[0].value) || (deviceHA<=HALimitsN[1].value);
+    }
 }
 
 
@@ -86,7 +104,7 @@ bool PimocoMount::checkLimitsPosSpeed(double equRA, double equDec, TelescopePier
    	struct ln_equ_posn equ_t0={equRA, equDec};
    	double jd=ln_get_julian_from_sys();
    	struct ln_hrz_posn hrz_t0;
-   	ln_get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hrz_t0);
+   	get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hrz_t0);
 
     // check alt limits
    	bool inside_t0=(hrz_t0.alt>=AltLimitsN[0].value) && (hrz_t0.alt<=AltLimitsN[1].value);
@@ -95,9 +113,9 @@ bool PimocoMount::checkLimitsPosSpeed(double equRA, double equDec, TelescopePier
 		   	LOGF_INFO("RA %f Dec %f Az %f Alt %f inside %d", equ_t0.ra, equ_t0.dec, hrz_t0.az, hrz_t0.alt, inside_t0);
 	} else {
     	// we're outside, check next pos in 1 second
-    	struct ln_equ_posn equ_t1={equ_t0.ra-haArcsecPerSec/(60.0*60.0), equ_t0.dec+decArcsecPerSec/(60.0*60.0)}; // decSpeed=-haSpeed
+    	struct ln_equ_posn equ_t1={equ_t0.ra-haArcsecPerSec/(60.0*60.0), equ_t0.dec+decArcsecPerSec/(60.0*60.0)}; // raSpeed=-haSpeed
        	struct ln_hrz_posn hrz_t1;
-       	ln_get_hrz_from_equ(&equ_t1, &lnobserver, jd, &hrz_t1);
+       	get_hrz_from_equ(&equ_t1, &lnobserver, jd+1.0/(24.0*60.0*60.0), &hrz_t1);
 
        	// will motion get us at least 0.1 arcsec closer to a compliant state?
        	bool right_dir_t1=((hrz_t0.alt < AltLimitsN[0].value) && (hrz_t1.alt > hrz_t0.alt + 0.1/(60.0*60.0))) || 
@@ -105,7 +123,7 @@ bool PimocoMount::checkLimitsPosSpeed(double equRA, double equDec, TelescopePier
 
     	if(log)
     	   	LOGF_INFO("RA %f Dec %f Az %f Alt %f inside %d right_dir %d", equ_t0.ra, equ_t0.dec, hrz_t0.az, hrz_t0.alt, inside_t0, right_dir_t1);
-       if(!right_dir_t1)
+        if(!right_dir_t1)
             return false;
     }
 
@@ -113,8 +131,12 @@ bool PimocoMount::checkLimitsPosSpeed(double equRA, double equDec, TelescopePier
     double deviceHA, deviceDec;
     deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
 
+    bool insideHA=checkLimitsPosHA(deviceHA, deviceDec);
+    if(log)
+        LOGF_INFO("Device HA %f Dec %f HA limits [%f, %f] insideHA %d", deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value, insideHA);
+
     // check HA limits
-    if(!checkLimitsPosHA(deviceHA, deviceDec)) {
+    if(!insideHA) {
         return false;
     }
 
