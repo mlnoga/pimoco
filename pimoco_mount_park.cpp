@@ -37,7 +37,7 @@ bool PimocoMount::SetCurrentPark() {
 }
 
 bool PimocoMount::SetDefaultPark() {
-	return SetParkPosition(0, 90);
+	return SetParkPosition(-6, 90);
 }
 
 bool PimocoMount::Park() {
