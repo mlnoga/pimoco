@@ -14,8 +14,8 @@ This is
 * manageable (no separate device firmware, only Indi drivers which Linux package managers can update)     
 
 
-## [Wiki](./wiki)
+## [Wiki](../../wiki)
 
-* [Hardware](./wiki/Hardware)
-* [Software](./wiki/Software)
-* [Results](.wiki/Results)
+* [Hardware](../../wiki/Hardware)
+* [Software](../../wiki/Software)
+* [Results](../../wiki/Results)
