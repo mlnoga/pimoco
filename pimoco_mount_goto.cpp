@@ -50,8 +50,24 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
         return false;
     }
 
+    // Deal with Indi idiom: Goto to same coordinates requests meridian flip
+    if(!forcePierSide) {
+	    double distRA=equRA-EqN[0].value, distDec=equDec-EqN[1].value;
+    	double distArcsec=sqrt(distRA*distRA + distDec*distDec)*60.0*60.0;
+    	if(distArcsec<=0.1) {
+    		equPS = (equPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
+    		LOGF_INFO("Distance %.1f arcsec, flip requested", distArcsec);
+    	}
+	}
+
     double deviceHA, deviceDec;
+
+    deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, getPierSide());
+    LOGF_INFO("Target device HA %f Dec %f with current pier side", deviceHA, deviceDec);
+
+
     deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
+    LOGF_INFO("Target device HA %f Dec %f with target pier side", deviceHA, deviceDec);
 
     if(!checkLimitsPosHA(deviceHA, deviceDec)) {
         if(forcePierSide) {
@@ -100,5 +116,5 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
 
 
 bool PimocoMount::Goto(double equRA, double equDec) {
-    return Goto(equRA, equDec, getPierSide(), true);
+    return Goto(equRA, equDec, getPierSide(), false);
 }
