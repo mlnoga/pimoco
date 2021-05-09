@@ -53,7 +53,7 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
     // Deal with Indi idiom: Goto to same coordinates requests meridian flip
     if(!forcePierSide) {
 	    double distRA=equRA-EqN[0].value, distDec=equDec-EqN[1].value;
-    	double distArcsec=sqrt(distRA*distRA + distDec*distDec)*60.0*60.0;
+    	double distArcsec=sqrt(distRA*distRA*(360.0/24.0)*(360.0/24.0) + distDec*distDec)*60.0*60.0;
     	if(distArcsec<=0.1) {
     		equPS = (equPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
     		LOGF_INFO("Distance %.1f arcsec, flip requested", distArcsec);
