@@ -68,7 +68,8 @@ void PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, doub
 
 bool PimocoMount::checkLimitsPosAlt(double equRA, double equDec) {
     // convert equatorial position to horizon coordinates
-   	struct ln_equ_posn equ_t0={equRA, equDec};
+    // Note that unlike Indi, which uses hours for RA, libnova expects RA in degrees
+   	struct ln_equ_posn equ_t0={equRA*(360.0/24.0), equDec};
    	double jd=ln_get_julian_from_sys();
    	struct ln_hrz_posn hrz_t0;
    	
