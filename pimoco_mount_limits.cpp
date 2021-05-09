@@ -105,7 +105,8 @@ bool PimocoMount::checkLimitsPosHA(double deviceHA, double deviceDec) {
 
 bool PimocoMount::checkLimitsPosSpeed(double equRA, double equDec, TelescopePierSide equPS, double haArcsecPerSec, double decArcsecPerSec, bool log) {
     // convert equatorial position to horizon coordinates
-   	struct ln_equ_posn equ_t0={equRA, equDec};
+    // Note that unlike Indi, which uses hours for RA, libnova expects RA in degrees
+    struct ln_equ_posn equ_t0={equRA*(360.0/24.0), equDec};
    	double jd=ln_get_julian_from_sys();
    	struct ln_hrz_posn hrz_t0;
    	get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hrz_t0);
