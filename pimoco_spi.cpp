@@ -28,10 +28,10 @@
 
 #include "pimoco_spi.h"
 
-const char    *SPI::defaultSPIDevice="/dev/spidev1.0";
-const uint8_t  SPI::defaultSPIMode=SPI_MODE_0;
+const char    *SPI::defaultSPIDevice="/dev/spidev0.0";
+const uint8_t  SPI::defaultSPIMode=SPI_MODE_3;
 const uint8_t  SPI::defaultSPIBits=8;
-const uint32_t SPI::defaultSPIMaxSpeedHz=500000;
+const uint32_t SPI::defaultSPIMaxSpeedHz=4500000;
 const uint32_t SPI::defaultSPIDelayUsec=0;
 
 
@@ -40,20 +40,28 @@ bool SPI::open(const char *deviceName) {
 		close();
 
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Opening device %s", deviceName!=NULL ? deviceName : "NULL");
+		LOGF_DEBUG("Device %s: opening", deviceName!=NULL ? deviceName : "NULL");
 
 	fd=::open(deviceName, O_RDWR);
-	if(fd<0)
+	if(fd<0) {
+		LOGF_ERROR("Device %s: opening: %s", deviceName!=NULL ? deviceName : "NULL", strerror(errno));
 		return false;
+	}
 
 	// Set SPI mode, bits per word and speed
 	//
-	if(ioctl(fd, SPI_IOC_WR_MODE, &defaultSPIMode)<0)
+	if(ioctl(fd, SPI_IOC_WR_MODE, &defaultSPIMode)<0) {
+		LOGF_ERROR("Device %s: Setting SPI mode 0x%02x: %s", deviceName!=NULL ? deviceName : "NULL", defaultSPIMode, strerror(errno));
 		return false;
-	if(ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &defaultSPIBits)<0)
+	}
+	if(ioctl(fd, SPI_IOC_WR_BITS_PER_WORD, &defaultSPIBits)<0) {
+		LOGF_ERROR("Device %s: Setting SPI bits to %d: %s", deviceName!=NULL ? deviceName : "NULL", defaultSPIBits, strerror(errno));
 		return false;
-	if(ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &defaultSPIMaxSpeedHz)<0)
+	}
+	if(ioctl(fd, SPI_IOC_WR_MAX_SPEED_HZ, &defaultSPIMaxSpeedHz)<0) {
+		LOGF_ERROR("Device %s: Setting SPI speed to %d: %s", deviceName!=NULL ? deviceName : "NULL", defaultSPIMaxSpeedHz, strerror(errno));
 		return false;
+	}
 
 	return true;
 }
@@ -80,5 +88,8 @@ bool SPI::sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t len) {
 		.bits_per_word = defaultSPIBits,
 	};
 
-	return ioctl(fd, SPI_IOC_MESSAGE(1), &tr)>=0;
+	int res=ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
+	if(res<0) 
+		LOGF_ERROR("SPI send/receive: %s", strerror(errno));
+	return res>=0;
 }

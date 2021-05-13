@@ -61,7 +61,7 @@ void ISSnoopDevice(XMLEle *root) {
 // Public class members
 //
 
-PimocoFocuser::PimocoFocuser() : stepper(getDeviceName(), FOCUSER_DIAG0_PIN), spiDeviceFilename("/dev/spidev1.2") {
+PimocoFocuser::PimocoFocuser() : stepper(getDeviceName(), FOCUSER_DIAG0_PIN), spiDeviceFilename("/dev/spidev3.0") {
 	setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
     FI::SetCapability(FOCUSER_CAN_ABS_MOVE | FOCUSER_CAN_REL_MOVE | FOCUSER_CAN_ABORT | 
     	              // FOCUSER_CAN_REVERSE  |        // superseded by stepper class controls which serve both mount and focuser 
