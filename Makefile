@@ -16,7 +16,7 @@ LFLAGS_MOUNT=-lindidriver -lnova -lwiringPi
 CFLAGS=-Wall
 CXX=g++
 
-all: $(TARGET_FOCUSER) $(TARGET_MOUNT)
+all: $(TARGET_FOCUSER) $(TARGET_MOUNT) test
 
 # Indi requires drivers to be installed into /usr/bin, unfortunately the more suitable /usr/local/bin doesn't work
 install: $(TARGET_FOCUSER) $(TARGET_MOUNT)
@@ -24,7 +24,7 @@ install: $(TARGET_FOCUSER) $(TARGET_MOUNT)
 	sudo cp indi_pimoco.xml /usr/share/indi/
 
 clean:
-	rm -f $(TARGET_TEST) $(TARGET_FOCUSER) $(TARGET_MOUNT) 
+	rm -f $(TARGET_TEST) $(TARGET_FOCUSER) $(TARGET_MOUNT) test
 
 realclean: clean
 	rm -f $(OBJS_TEST) $(DEPS_TEST) $(OBJS_FOCUSER) $(DEPS_FOCUSER) $(OBJS_MOUNT) $(DEPS_MOUNT)
@@ -40,6 +40,9 @@ $(TARGET_FOCUSER): $(OBJS_FOCUSER)
 
 $(TARGET_MOUNT): $(OBJS_MOUNT)
 	$(CXX) -o $@ $(LFLAGS_MOUNT) $(OBJS_MOUNT)
+
+test: test.cpp
+	$(CXX) -o $@ -Wall $<
 
 # Compile .cpp source into .o object, and create .d dependency file via option -MMD
 %.o: %.cpp
