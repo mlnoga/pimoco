@@ -63,7 +63,7 @@ static void transfer(int fd)
 			.speed_hz      = speed,
 			.delay_usecs   = delay,
 			.bits_per_word = bits,
-			.cs_change     = 0xff,
+			.cs_change     = ((t==(numTransfers-1)) ? (uint8_t) 0 : (uint8_t) 0xff),
 			.pad           = 0,
 		};
 	int res=ioctl(fd, SPI_IOC_MESSAGE(numTransfers), tr);
