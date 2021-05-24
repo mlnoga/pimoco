@@ -12,19 +12,21 @@ OBJS_MOUNT=$(patsubst %.cpp,%.o,$(SRCS_MOUNT))
 DEPS_MOUNT=$(patsubst %.cpp,%.d,$(SRCS_MOUNT))
 LFLAGS_MOUNT=-lindidriver -lnova -lwiringPi
 
+TARGETS=$(TARGET_FOCUSER) $(TARGET_MOUNT) spi0-3cs.dtbo spi0-4cs.dtbo test
 
 CFLAGS=-Wall
 CXX=g++
 
-all: $(TARGET_FOCUSER) $(TARGET_MOUNT) test
+all: $(TARGETS)
 
 # Indi requires drivers to be installed into /usr/bin, unfortunately the more suitable /usr/local/bin doesn't work
 install: $(TARGET_FOCUSER) $(TARGET_MOUNT)
 	sudo cp $(TARGET_FOCUSER) $(TARGET_MOUNT) /usr/bin/
 	sudo cp indi_pimoco.xml /usr/share/indi/
+	sudo cp spi0-3cs.dtbo spi0-4cs.dtbo /boot/overlays/
 
 clean:
-	rm -f $(TARGET_TEST) $(TARGET_FOCUSER) $(TARGET_MOUNT) test
+	rm -f $(TARGETS)
 
 realclean: clean
 	rm -f $(OBJS_TEST) $(DEPS_TEST) $(OBJS_FOCUSER) $(DEPS_FOCUSER) $(OBJS_MOUNT) $(DEPS_MOUNT)
@@ -47,6 +49,10 @@ test: test.cpp
 # Compile .cpp source into .o object, and create .d dependency file via option -MMD
 %.o: %.cpp
 	$(CXX) -o $@ -MMD $(CFLAGS) -c $<
+
+# Compile DTS device tree specification into DTBO device tree binary overlay
+%.dtbo: %-overlay.dts
+	dtc -@ -I dts -O dtb -o $@ $<
 
 # Include dependency files if present, else ignore silently
 -include $(DEPS_FOCUSER) $(DEPS_MOUNT) 

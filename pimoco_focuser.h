@@ -68,7 +68,8 @@ protected:
 
     const char *spiDeviceFilename;
 
-    enum { FOCUSER_DIAG0_PIN = 16 };
+    // Broadcom GPIO pin numbers for stepper DIAG0 lines
+    enum { FOCUSER_DIAG0_PIN = 20 };
 
     // UI controls
     //

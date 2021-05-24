@@ -154,10 +154,10 @@ protected:
     bool applyLimitsPosSpeed(double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
 
 
-    // Physical pin numbers on Raspberry Pi connector for stepper DIAG0 lines 
+    // Broadcom GPIO pin numbers for stepper DIAG0 lines 
     enum {
-        HA_DIAG0_PIN = 13,
-        DEC_DIAG0_PIN = 15,
+        HA_DIAG0_PIN  = 19,
+        DEC_DIAG0_PIN = 16,
     };
 
 	Stepper stepperHA;

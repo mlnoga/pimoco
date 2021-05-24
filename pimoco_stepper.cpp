@@ -129,7 +129,7 @@ bool Stepper::Init() {
 
 	// setup ISR
 	if(diag0Pin>0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
-		LOGF_INFO("Setting up ISR on pin %d for device %s", diag0Pin, getDeviceName());
+		LOGF_INFO("Setting up ISR on broadcom GPIO pin %d for device %s", diag0Pin, getDeviceName());
 
 		initGPIO();
 		objectsByPin[diag0Pin]=this;
@@ -212,7 +212,7 @@ bool Stepper::Init() {
 		return false;
 
 	LOGF_INFO("%s: Auto-tuning...", getDeviceName());
-	if(!chopperAutoTuneStealthChop(500, 3000))
+	if(!chopperAutoTuneStealthChop(500, 5000))
 		return false;
 
 	// now that configuration is complete, set hold current to proper target 
