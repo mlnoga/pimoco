@@ -34,3 +34,4 @@ indi_pimoco_focuser
 indi_pimoco_mount
 test_stepper
 test
+*.dtbo
