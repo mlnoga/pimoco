@@ -224,7 +224,7 @@ TMC5160 *TMC5160::objectsByPin[TMC5160::RPI_PHYS_PIN_MAX+1];
 
 void TMC5160::initGPIO() {
 	if(!isGPIOInitialized) {
-		wiringPiSetupPhys();
+		wiringPiSetupGpio();
 		isGPIOInitialized=true;
 	}
 }

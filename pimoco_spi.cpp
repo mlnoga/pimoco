@@ -31,7 +31,7 @@
 const char    *SPI::defaultSPIDevice="/dev/spidev0.0";
 const uint8_t  SPI::defaultSPIMode=SPI_MODE_3;
 const uint8_t  SPI::defaultSPIBits=8;
-const uint32_t SPI::defaultSPIMaxSpeedHz=4500000;
+const uint32_t SPI::defaultSPIMaxSpeedHz=4000000;
 const uint32_t SPI::defaultSPIDelayUsec=0;
 
 
