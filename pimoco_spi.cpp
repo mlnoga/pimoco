@@ -31,7 +31,7 @@
 const char    *SPI::defaultSPIDevice="/dev/spidev0.0";
 const uint8_t  SPI::defaultSPIMode=SPI_MODE_3;
 const uint8_t  SPI::defaultSPIBits=8;
-const uint32_t SPI::defaultSPIMaxSpeedHz=4500000;
+const uint32_t SPI::defaultSPIMaxSpeedHz=4000000;
 const uint32_t SPI::defaultSPIDelayUsec=0;
 
 
@@ -79,16 +79,26 @@ bool SPI::close() {
 
 
 bool SPI::sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t len) {
-	struct spi_ioc_transfer tr = {
-		.tx_buf        = (unsigned long) tx,
-		.rx_buf        = (unsigned long) rx,
-		.len           = len,
-		.speed_hz      = defaultSPIMaxSpeedHz,
-		.delay_usecs   = defaultSPIDelayUsec,
-		.bits_per_word = defaultSPIBits,
-	};
+	if((len==0) || ((len%5)!=0)) {
+		LOGF_ERROR("SPI send/receive: length %d not a nonzero multiple of 5", len);
+		return false;		
+	}
 
-	int res=ioctl(fd, SPI_IOC_MESSAGE(1), &tr);
+	const uint32_t numTransfers=len/5;
+	struct spi_ioc_transfer tr[numTransfers];
+	for(uint32_t t=0; t<numTransfers; t++)
+		tr[t] = {
+			.tx_buf        = (unsigned long) &tx[5*t],
+			.rx_buf        = (unsigned long) &rx[5*t],
+			.len           = 5,
+			.speed_hz      = defaultSPIMaxSpeedHz,
+			.delay_usecs   = defaultSPIDelayUsec,
+			.bits_per_word = defaultSPIBits,
+			.cs_change     = ((t==(numTransfers-1)) ? (uint8_t) 0 : (uint8_t) 0xff),
+			.pad           = 0,
+		};
+	int res=ioctl(fd, SPI_IOC_MESSAGE(numTransfers), tr);
+
 	if(res<0) 
 		LOGF_ERROR("SPI send/receive: %s", strerror(errno));
 	return res>=0;

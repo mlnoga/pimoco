@@ -56,6 +56,59 @@ bool Stepper::open(const char *deviceName) {
 	if(!TMC5160::open(deviceName))
 		return false;
 
+	if((!Handshake()) || (!Init())) {
+		TMC5160::close();
+		return false;
+	}
+
+	return true;
+}
+
+
+bool Stepper::Handshake() {
+	// try sending test pattern and capturing response
+	const uint32_t len=5*5;
+	uint8_t tx[len]={
+		TMCR_X_ENC | 0x80, 0x01, 0x02, 0x03, 0x04,  // set XENC to 0x01020304
+		TMCR_X_ENC       , 0x11, 0x12, 0x13, 0x14,  // get XENC
+		TMCR_X_ENC | 0x80, 0x21, 0x22, 0x23, 0x24,  // set XENC to 0x21222324
+		TMCR_X_ENC       , 0x31, 0x32, 0x33, 0x34,  // get XENC
+		TMCR_X_ENC       , 0x41, 0x42, 0x43, 0x44,  // get XENC
+	};
+	uint8_t rx[len];
+	if(!sendReceive(tx, rx, len)) {
+		LOGF_WARN("%s: Handshake failed: send/receive", getDeviceName());
+		return false;
+	}
+
+//	if(debugLevel>=TMC_DEBUG_DEBUG)
+		for(uint32_t i=0; i<5; i++)
+			LOGF_INFO("%d: sent %02x %02x %02x %02x %02x   recv %02x %02x %02x %02x %02x", i, tx[5*i+0], tx[5*i+1], tx[5*i+2], tx[5*i+3], tx[5*i+4],  rx[5*i+0], rx[5*i+1], rx[5*i+2], rx[5*i+3], rx[5*i+4]  );
+
+	// validate responses
+	if(rx[5*1+1]!=tx[5*0+1] || rx[5*1+2]!=tx[5*0+2] || rx[5*1+3]!=tx[5*0+3] || rx[5*1+4]!=tx[5*0+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after first set", getDeviceName(), rx[5*1+1], rx[5*1+2], rx[5*1+3], rx[5*1+4]);
+		return false;
+	}
+	if(rx[5*2+1]!=tx[5*0+1] || rx[5*2+2]!=tx[5*0+2] || rx[5*2+3]!=tx[5*0+3] || rx[5*2+4]!=tx[5*0+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after first get", getDeviceName(), rx[5*2+1], rx[5*2+2], rx[5*2+3], rx[5*2+4]);
+		return false;
+	}
+	if(rx[5*3+1]!=tx[5*2+1] || rx[5*3+2]!=tx[5*2+2] || rx[5*3+3]!=tx[5*2+3] || rx[5*3+4]!=tx[5*2+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after second set", getDeviceName(), rx[5*3+1], rx[5*3+2], rx[5*3+3], rx[5*3+4]);
+		return false;
+	}
+	if(rx[5*4+1]!=tx[5*2+1] || rx[5*4+2]!=tx[5*2+2] || rx[5*4+3]!=tx[5*2+3] || rx[5*4+4]!=tx[5*2+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after second get", getDeviceName(), rx[5*4+1], rx[5*4+2], rx[5*4+3], rx[5*4+4]);
+		return false;
+	}
+
+	LOGF_INFO("%s: Handshake successful", getDeviceName());
+	return true;
+}
+
+
+bool Stepper::Init() {
 	// Stop device, just in case it was left running
 	if(!stop())
 		return false;
@@ -76,7 +129,7 @@ bool Stepper::open(const char *deviceName) {
 
 	// setup ISR
 	if(diag0Pin>0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
-		LOGF_INFO("Setting up ISR on pin %d for device %s", diag0Pin, deviceName);
+		LOGF_INFO("Setting up ISR on pin %d for device %s", diag0Pin, getDeviceName());
 
 		initGPIO();
 		objectsByPin[diag0Pin]=this;
@@ -84,9 +137,11 @@ bool Stepper::open(const char *deviceName) {
 		pullUpDnControl(diag0Pin, PUD_UP);    
 		wiringPiISR(diag0Pin, INT_EDGE_FALLING, isrsByPin[diag0Pin]);
 
-		isr(); // call once to initialize
+		// clear interrupt flags by writing all ones
+		if(!setRegister(TMCR_RAMP_STAT, (1ul<<14)-1))
+			return false;
 	} else 
-		LOGF_INFO("No ISR for for device %s", deviceName);
+		LOGF_INFO("No ISR for for device %s", getDeviceName());
 
 	// Set motor current parameters
 	//
@@ -156,6 +211,7 @@ bool Stepper::open(const char *deviceName) {
 	if(!setChopperHEnd(0))
 		return false;
 
+	LOGF_INFO("%s: Auto-tuning...", getDeviceName());
 	if(!chopperAutoTuneStealthChop(500, 3000))
 		return false;
 
@@ -163,21 +219,8 @@ bool Stepper::open(const char *deviceName) {
 	if(!setHoldCurrent(100)) 
 		return false;
 
-	// FIXME
-	//
-	
-	// // if performance isn't good up to VMax, enable switch from StealthChop to SpreadCycle above threshold speed (e.g. 16x sidereal?)
-	// if(!setTPWMThreshold(tbd))
-	//	return false;
-	// // if that results in coil overshoot during deceleration
-	// if(!setPWMLimit(tbd))
-	//	return false;
-
-	// configure coolstep load adaptive current control
-	// configure high velocity mode with switch to fullstep, and enable DCStep to avoid lost steps when too fast
-
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Successfully initialized device %s", deviceName!=NULL ? deviceName : "NULL");
+		LOGF_DEBUG("Successfully initialized device %s", getDeviceName()!=NULL ? getDeviceName() : "NULL");
 	
 	return true;
 }

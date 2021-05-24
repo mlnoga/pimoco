@@ -36,6 +36,14 @@ public:
 
 	bool open(const char *device);
 
+protected:
+	// Performs handshake on already open SPI connection. Returns true if successful, else false
+	bool Handshake();
+
+	// Initializes the stepper parameters on an already open SPI connection. Returns true if successful, else false 
+	bool Init();
+
+public:
 	bool close();
 
 	// Sets the target velocity in arcseconds per second of the controlled object. Returns immediately. Returns true on success, else false

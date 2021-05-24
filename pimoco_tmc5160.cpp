@@ -359,28 +359,28 @@ bool TMC5160::getRegister(uint8_t address, uint32_t *result) {
 		return true;
 	}
 
-	uint8_t tx[5]={(uint8_t) (address & (TMCR_NUM_REGISTERS-1)),0,0,0,0};
-	uint8_t rx[5];
+	uint8_t tx[10]={ (uint8_t) (address & (TMCR_NUM_REGISTERS-1)),0,0,0,0,
+	        	     (uint8_t) (address & (TMCR_NUM_REGISTERS-1)),0,0,0,0, };
+	uint8_t rx[10];
 
 	// Per the datasheet, raw send/receive returns the value requested with the PREVIOUS transfer.
 	// As SPI is not performance critical for our application, we simply send read requests twice. 
-	for(int i=0; i<2; i++)
-		if(!sendReceive(tx,rx,5)) {
-			const int bufsize=1023;
-			char buffer[bufsize+1]={0};
-			printRegister(buffer, bufsize, address, *result, rx[0], "get", "error");
-			LOG_ERROR(buffer);
-			return false;
-		}
+	if(!sendReceive(tx,rx,10)) {
+		const int bufsize=1023;
+		char buffer[bufsize+1]={0};
+		printRegister(buffer, bufsize, address, *result, rx[5], "get", "error");
+		LOG_ERROR(buffer);
+		return false;
+	}
 
-	deviceStatus=(enum TMCStatusFlags) rx[0];
+	deviceStatus=(enum TMCStatusFlags) rx[5];
 
-	*result=(((uint32_t) rx[1])<<24) | (((uint32_t) rx[2])<<16) | 
-	        (((uint32_t) rx[3])<<8)  |  ((uint32_t) rx[4]); 
+	*result=(((uint32_t) rx[5+1])<<24) | (((uint32_t) rx[5+2])<<16) | 
+	        (((uint32_t) rx[5+3])<<8)  |  ((uint32_t) rx[5+4]); 
 	if(debugLevel>=TMC_DEBUG_REGISTERS) {
 		const int bufsize=1023;
 		char buffer[bufsize+1]={0};
-		printRegister(buffer, bufsize, address, *result, rx[0], "get", NULL);
+		printRegister(buffer, bufsize, address, *result, rx[5], "get", NULL);
 		LOG_DEBUG(buffer);
 	}
 
@@ -397,41 +397,41 @@ bool TMC5160::setRegister(uint8_t address, uint32_t value) {
 		return false;
 	}
 
-	uint8_t tx[5]={(uint8_t) (address | 0x0080), 
+	// Per the datasheet, raw send/receive returns the value sent/requested with the PREVIOUS transfer.
+	// As SPI is not performance critical for our application, we simply send a dummy read request after the write.
+	// Returned data must be identical to the originally set data. 
+	uint8_t tx[10]={(uint8_t) (address | 0x0080), 
 		           (uint8_t) ((value>>24)&0x00ff), (uint8_t) ((value>>16)&0x00ff), 
-		           (uint8_t) ((value>>8)&0x00ff),  (uint8_t) ((value>>0)&0x00ff)   };
-	uint8_t rx[5];
-	if(!sendReceive(tx,rx,5)) {
+		           (uint8_t) ((value>>8)&0x00ff),  (uint8_t) ((value>>0)&0x00ff),
+		           0, 0, 0, 0, 0   };
+	uint8_t rx[10];
+	if(!sendReceive(tx,rx,10)) {
 		if(debugLevel>=TMC_DEBUG_REGISTERS) {
 			const int bufsize=1023;
 			char buffer[bufsize+1]={0};
-			printRegister(buffer, bufsize, address, value, rx[0], "SET", "error");
+			printRegister(buffer, bufsize, address, value, rx[5], "SET", "error");
 			LOG_DEBUG(buffer);
 		}
 		return false;
 	}
 
-	// Per the datasheet, raw send/receive returns the value requested with the PREVIOUS transfer.
-	// As SPI is not performance critical for our application, we simply send a dummy read request.
-	// Returned data must be identical to the originally set data 
-	uint8_t tx2[5]={0,0,0,0,0};
-	if(!sendReceive(tx2,rx,5) || rx[1]!=tx[1] || rx[2]!=tx[2] || rx[3]!=tx[3] || rx[4]!=tx[4]) {
+	if(rx[5+1]!=tx[1] || rx[5+2]!=tx[2] || rx[5+3]!=tx[3] || rx[5+4]!=tx[4]) {
 		if(debugLevel>=TMC_DEBUG_REGISTERS) {
 			const int bufsize=1023;
 			char buffer[bufsize+1]={0};
-			printRegister(buffer, bufsize, address, value, rx[0], "get", "error");
+			printRegister(buffer, bufsize, address, value, rx[5], "get", "error");
 			LOG_DEBUG(buffer);
 		}
 		return false;
 	}
 
-	deviceStatus=(enum TMCStatusFlags) rx[0];
+	deviceStatus=(enum TMCStatusFlags) rx[5];
 	cachedRegisterValues[address & (TMCR_NUM_REGISTERS-1)]=value;
 
 	if(debugLevel>=TMC_DEBUG_REGISTERS) {
 		const int bufsize=1023;
 		char buffer[bufsize+1]={0};
-		printRegister(buffer, bufsize, address, value, rx[0], "SET", NULL);
+		printRegister(buffer, bufsize, address, value, rx[5], "SET", NULL);
 		LOG_DEBUG(buffer);
 	}
 	return true;

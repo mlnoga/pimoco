@@ -52,7 +52,7 @@ public:
 	// Returns true if the device is connected, else false
 	bool isConnected() const { return fd>=0; }
 
-	// Sends the given number of bytes to the device, then retrieves the same number of bytes. 
+	// Sends the given number of bytes to the device, then retrieves the same number of bytes.  Number of bytes must be dividable by 5.
 	// Returns true on success, else false
 	virtual bool sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t numBytes);
 

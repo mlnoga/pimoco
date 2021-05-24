@@ -140,11 +140,16 @@ bool PimocoMount::Connect() {
 	LOGF_INFO("Attempting connection to Dec on %s", spiDeviceFilenameDec);
 	if(!stepperDec.open(spiDeviceFilenameDec)) {
 		LOGF_WARN("Connection to Dec on %s failed", spiDeviceFilenameDec);
+		stepperHA.close();
 		return false;
 	}
-	if(!ReadScopeStatus())
-		return false;
 	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
+
+	if(!ReadScopeStatus()) {
+		stepperHA.close();
+		stepperDec.close();
+		return false;
+	}
 
 	// Restore park status. Must be performed after connection
 	if(isParked())
