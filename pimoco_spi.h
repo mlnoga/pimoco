@@ -38,7 +38,7 @@ public:
 	};
 
 	// Creates device connected via SPI
-	SPI(const char *theIndiDeviceName) : fd(-1), debugLevel(TMC_DEBUG_DEBUG), indiDeviceName(theIndiDeviceName) { }
+	SPI(const char *theIndiDeviceName, const char *theAxisName) : fd(-1), debugLevel(TMC_DEBUG_DEBUG), indiDeviceName(theIndiDeviceName), axisName(theAxisName) { }
 
 	// Destroys this device connected via SPI
 	~SPI() { close(); }
@@ -65,6 +65,9 @@ public:
 	// Get Indi device name. Used by logging macros
 	const char *getDeviceName() const { return indiDeviceName; }
 
+	// Get Axis name. Used by logging macros
+	const char *getAxisName() const { return axisName; }
+
 
 protected:
 	// File descriptor for the SPI device
@@ -75,6 +78,10 @@ protected:
 
 	// INDI device name. Used by logging macros
 	const char *indiDeviceName;
+
+	// Axis name. Used by logging macros
+	const char *axisName;
+
 
 public:
 	// Default SPI device
