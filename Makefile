@@ -12,7 +12,7 @@ OBJS_MOUNT=$(patsubst %.cpp,%.o,$(SRCS_MOUNT))
 DEPS_MOUNT=$(patsubst %.cpp,%.d,$(SRCS_MOUNT))
 LFLAGS_MOUNT=-lindidriver -lnova -lwiringPi
 
-TARGETS=$(TARGET_FOCUSER) $(TARGET_MOUNT) spi0-3cs.dtbo spi0-4cs.dtbo test
+TARGETS=$(TARGET_FOCUSER) $(TARGET_MOUNT) spi0-3cs.dtbo spi0-4cs.dtbo spitest
 
 CFLAGS=-Wall
 CXX=g++
@@ -34,6 +34,12 @@ realclean: clean
 count:
 	wc -l *.cpp *.h
 
+spitests: spitest
+	./spitest -D /dev/spidev0.0 -s 4000000 -b 8 -d 0 -H -O
+	./spitest -D /dev/spidev0.1 -s 4000000 -b 8 -d 0 -H -O
+	./spitest -D /dev/spidev0.2 -s 4000000 -b 8 -d 0 -H -O
+	./spitest -D /dev/spidev0.3 -s 4000000 -b 8 -d 0 -H -O
+
 serve: $(TARGET_FOCUSER) $(TARGET_MOUNT)
 	indiserver -v ./$(TARGET_FOCUSER) ./$(TARGET_MOUNT)
 
@@ -43,7 +49,7 @@ $(TARGET_FOCUSER): $(OBJS_FOCUSER)
 $(TARGET_MOUNT): $(OBJS_MOUNT)
 	$(CXX) -o $@ $(LFLAGS_MOUNT) $(OBJS_MOUNT)
 
-test: test.cpp
+spitest: spitest.cpp
 	$(CXX) -o $@ -Wall $<
 
 # Compile .cpp source into .o object, and create .d dependency file via option -MMD
