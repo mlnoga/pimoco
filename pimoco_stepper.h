@@ -29,7 +29,7 @@
 class Stepper : public TMC5160 {
 public:
 	// Creates a TMC5160 stepper connected via SPI, with optional physical connector pin for diag0 interrupt (negative=unused)
-	Stepper(const char *theIndiDeviceName, int diag0Pin=-1);
+	Stepper(const char *theIndiDeviceName, const char *theAxisName, int diag0Pin=-1);
 
 	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
 	~Stepper();
