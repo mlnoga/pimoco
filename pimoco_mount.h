@@ -154,10 +154,10 @@ protected:
     bool applyLimitsPosSpeed(double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
 
 
-    // Broadcom GPIO pin numbers for stepper DIAG0 lines 
+    // Physical connector GPIO pin numbers for stepper DIAG0 lines 
     enum {
-        HA_DIAG0_PIN  = 19,
-        DEC_DIAG0_PIN = 16,
+        HA_DIAG0_PIN  = 35,
+        DEC_DIAG0_PIN = 36,
     };
 
 	Stepper stepperHA;

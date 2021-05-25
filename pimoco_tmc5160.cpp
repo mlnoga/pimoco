@@ -224,7 +224,7 @@ TMC5160 *TMC5160::objectsByPin[TMC5160::RPI_PHYS_PIN_MAX+1];
 
 void TMC5160::initGPIO() {
 	if(!isGPIOInitialized) {
-		wiringPiSetupGpio();
+		wiringPiSetupPhys();
 		isGPIOInitialized=true;
 	}
 }
@@ -304,19 +304,20 @@ void TMC5160::isr() {
 void TMC5160::isrInit() {
 	// setup ISR
 	if(diag0Pin>=0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
-		LOGF_INFO("%s: Setting up ISR on broadcom GPIO pin %d", getAxisName(), diag0Pin);
+		LOGF_INFO("%s: Enabling interrupts on physical pin %d", getAxisName(), diag0Pin);
 
 		initGPIO();
 		objectsByPin[diag0Pin]=this;
 		pinMode(diag0Pin, INPUT);
-		pullUpDnControl(diag0Pin, PUD_OFF); // Pi has 50 KOhms or more, TMC needs 47 KOhms or less, use external pullups    
-		wiringPiISR(diag0Pin, INT_EDGE_RISING /* FALLING */, isrsByPin[diag0Pin]);
+		// Pi has >50 KOhm, TMC needs <47 KOhm in open collector mode, so use TMC push/pull
+		pullUpDnControl(diag0Pin, PUD_OFF);      
+		wiringPiISR(diag0Pin, INT_EDGE_RISING, isrsByPin[diag0Pin]);
 
 		// clear interrupt flags by writing all ones
 		if(!setRegister(TMCR_RAMP_STAT, (1ul<<14)-1))
 			LOGF_ERROR("%s: Error clearing ramp status register", getAxisName());
 	} else 
-		LOGF_INFO("%s: No ISR for for device", getAxisName());
+		LOGF_INFO("%s: No interrupts for device", getAxisName());
 }
 
 
@@ -336,9 +337,6 @@ TMC5160::~TMC5160() {
 bool TMC5160::setTargetSpeed(int32_t value) {
 	if(debugLevel>=TMC_DEBUG_DEBUG)
 		LOGF_DEBUG("%s: Setting target speed to %'+d", getAxisName(), value);
-
-	// FIXME: min/max position limits are not checked when setting a speed.
-	// Would need a background timer with e.g. speed-based 1s lookahead.
 
 	return setRegister(TMCR_RAMPMODE, value>=0 ? 1 : 2) &&    // select velocity mode and sign
 	       setRegister(TMCR_VMAX, value>=0 ? value : -value); // set absolute target speed to initiate movement
