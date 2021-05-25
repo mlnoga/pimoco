@@ -141,10 +141,13 @@ public:
 	};
 
 	// Creates a TMC5160 stepper connected via SPI, with optional physical connector pin for diag0 interrupt (negative=unused)
-	TMC5160(const char *theIndiDeviceName, int thDiag0Pin=-1);
+	TMC5160(const char *theIndiDeviceName, const char *theAxisName, int thDiag0Pin=-1);
 
-	// Destroys this TMC5160 stepper connected via SPI. Stops device motion for safety's sake
-	~TMC5160() { }
+	// Destroys this TMC5160 stepper connected via SPI
+	~TMC5160();
+
+	// Initialize interrupt service routine
+	void isrInit();
 
 	// Returns the device status flags from the latest command	
 	enum TMCStatusFlags getStatus() { return deviceStatus; }
@@ -199,6 +202,12 @@ public:
 
 	// Sets diagnosis 0 enable on interrupt=0 or step=1 on device. Returns true on success, else false
 	bool setDiag0EnableInterruptStep(uint32_t value) { return setRegisterBits(TMCR_GCONF, value, 7, 1); }
+
+	// Gets diagnosis 0 push-pull from device. Returns true on success, else false
+	bool getDiag0PushPull(uint32_t *result) { return getRegisterBits(TMCR_GCONF, result, 12, 1); }
+
+	// Sets diagnosis 0 push-pull on device. Returns true on success, else false
+	bool setDiag0PushPull(uint32_t value) { return setRegisterBits(TMCR_GCONF, value, 12, 1); }
 
 	// Gets PWM enable flag 0/1 from device. Returns true on success, else false
 	bool getPWMEnableStealthChop(uint32_t *result) { return getRegisterBits(TMCR_GCONF, result, 2, 1); }
