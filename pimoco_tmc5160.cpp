@@ -229,53 +229,53 @@ void TMC5160::initGPIO() {
 	}
 }
 
-void TMC5160::isr01() { objectsByPin[ 1]->isr(); }
-void TMC5160::isr02() { objectsByPin[ 2]->isr(); }
-void TMC5160::isr03() { objectsByPin[ 3]->isr(); }
-void TMC5160::isr04() { objectsByPin[ 4]->isr(); }
-void TMC5160::isr05() { objectsByPin[ 5]->isr(); }
-void TMC5160::isr06() { objectsByPin[ 6]->isr(); }
-void TMC5160::isr07() { objectsByPin[ 7]->isr(); }
-void TMC5160::isr08() { objectsByPin[ 8]->isr(); }
-void TMC5160::isr09() { objectsByPin[ 9]->isr(); }
-void TMC5160::isr10() { objectsByPin[10]->isr(); }
-void TMC5160::isr11() { objectsByPin[11]->isr(); }
-void TMC5160::isr12() { objectsByPin[12]->isr(); }
-void TMC5160::isr13() { objectsByPin[13]->isr(); }
-void TMC5160::isr14() { objectsByPin[14]->isr(); }
-void TMC5160::isr15() { objectsByPin[15]->isr(); }
-void TMC5160::isr16() { objectsByPin[16]->isr(); }
-void TMC5160::isr17() { objectsByPin[17]->isr(); }
-void TMC5160::isr18() { objectsByPin[18]->isr(); }
-void TMC5160::isr19() { objectsByPin[19]->isr(); }
-void TMC5160::isr20() { objectsByPin[20]->isr(); }
-void TMC5160::isr21() { objectsByPin[21]->isr(); }
-void TMC5160::isr22() { objectsByPin[22]->isr(); }
-void TMC5160::isr23() { objectsByPin[23]->isr(); }
-void TMC5160::isr24() { objectsByPin[24]->isr(); }
-void TMC5160::isr25() { objectsByPin[25]->isr(); }
-void TMC5160::isr26() { objectsByPin[26]->isr(); }
-void TMC5160::isr27() { objectsByPin[27]->isr(); }
-void TMC5160::isr28() { objectsByPin[28]->isr(); }
-void TMC5160::isr29() { objectsByPin[29]->isr(); }
-void TMC5160::isr30() { objectsByPin[30]->isr(); }
-void TMC5160::isr31() { objectsByPin[31]->isr(); }
-void TMC5160::isr32() { objectsByPin[32]->isr(); }
-void TMC5160::isr33() { objectsByPin[33]->isr(); }
-void TMC5160::isr34() { objectsByPin[34]->isr(); }
-void TMC5160::isr35() { objectsByPin[35]->isr(); }
-void TMC5160::isr36() { objectsByPin[36]->isr(); }
-void TMC5160::isr37() { objectsByPin[37]->isr(); }
-void TMC5160::isr38() { objectsByPin[38]->isr(); }
-void TMC5160::isr39() { objectsByPin[39]->isr(); }
-void TMC5160::isr40() { objectsByPin[40]->isr(); }
+void TMC5160::isr01() { if(objectsByPin[ 1]!=NULL) objectsByPin[ 1]->isr(); }
+void TMC5160::isr02() { if(objectsByPin[ 2]!=NULL) objectsByPin[ 2]->isr(); }
+void TMC5160::isr03() { if(objectsByPin[ 3]!=NULL) objectsByPin[ 3]->isr(); }
+void TMC5160::isr04() { if(objectsByPin[ 4]!=NULL) objectsByPin[ 4]->isr(); }
+void TMC5160::isr05() { if(objectsByPin[ 5]!=NULL) objectsByPin[ 5]->isr(); }
+void TMC5160::isr06() { if(objectsByPin[ 6]!=NULL) objectsByPin[ 6]->isr(); }
+void TMC5160::isr07() { if(objectsByPin[ 7]!=NULL) objectsByPin[ 7]->isr(); }
+void TMC5160::isr08() { if(objectsByPin[ 8]!=NULL) objectsByPin[ 8]->isr(); }
+void TMC5160::isr09() { if(objectsByPin[ 9]!=NULL) objectsByPin[ 9]->isr(); }
+void TMC5160::isr10() { if(objectsByPin[10]!=NULL) objectsByPin[10]->isr(); }
+void TMC5160::isr11() { if(objectsByPin[11]!=NULL) objectsByPin[11]->isr(); }
+void TMC5160::isr12() { if(objectsByPin[12]!=NULL) objectsByPin[12]->isr(); }
+void TMC5160::isr13() { if(objectsByPin[13]!=NULL) objectsByPin[13]->isr(); }
+void TMC5160::isr14() { if(objectsByPin[14]!=NULL) objectsByPin[14]->isr(); }
+void TMC5160::isr15() { if(objectsByPin[15]!=NULL) objectsByPin[15]->isr(); }
+void TMC5160::isr16() { if(objectsByPin[16]!=NULL) objectsByPin[16]->isr(); }
+void TMC5160::isr17() { if(objectsByPin[17]!=NULL) objectsByPin[17]->isr(); }
+void TMC5160::isr18() { if(objectsByPin[18]!=NULL) objectsByPin[18]->isr(); }
+void TMC5160::isr19() { if(objectsByPin[19]!=NULL) objectsByPin[19]->isr(); }
+void TMC5160::isr20() { if(objectsByPin[20]!=NULL) objectsByPin[20]->isr(); }
+void TMC5160::isr21() { if(objectsByPin[21]!=NULL) objectsByPin[21]->isr(); }
+void TMC5160::isr22() { if(objectsByPin[22]!=NULL) objectsByPin[22]->isr(); }
+void TMC5160::isr23() { if(objectsByPin[23]!=NULL) objectsByPin[23]->isr(); }
+void TMC5160::isr24() { if(objectsByPin[24]!=NULL) objectsByPin[24]->isr(); }
+void TMC5160::isr25() { if(objectsByPin[25]!=NULL) objectsByPin[25]->isr(); }
+void TMC5160::isr26() { if(objectsByPin[26]!=NULL) objectsByPin[26]->isr(); }
+void TMC5160::isr27() { if(objectsByPin[27]!=NULL) objectsByPin[27]->isr(); }
+void TMC5160::isr28() { if(objectsByPin[28]!=NULL) objectsByPin[28]->isr(); }
+void TMC5160::isr29() { if(objectsByPin[29]!=NULL) objectsByPin[29]->isr(); }
+void TMC5160::isr30() { if(objectsByPin[30]!=NULL) objectsByPin[30]->isr(); }
+void TMC5160::isr31() { if(objectsByPin[31]!=NULL) objectsByPin[31]->isr(); }
+void TMC5160::isr32() { if(objectsByPin[32]!=NULL) objectsByPin[32]->isr(); }
+void TMC5160::isr33() { if(objectsByPin[33]!=NULL) objectsByPin[33]->isr(); }
+void TMC5160::isr34() { if(objectsByPin[34]!=NULL) objectsByPin[34]->isr(); }
+void TMC5160::isr35() { if(objectsByPin[35]!=NULL) objectsByPin[35]->isr(); }
+void TMC5160::isr36() { if(objectsByPin[36]!=NULL) objectsByPin[36]->isr(); }
+void TMC5160::isr37() { if(objectsByPin[37]!=NULL) objectsByPin[37]->isr(); }
+void TMC5160::isr38() { if(objectsByPin[38]!=NULL) objectsByPin[38]->isr(); }
+void TMC5160::isr39() { if(objectsByPin[39]!=NULL) objectsByPin[39]->isr(); }
+void TMC5160::isr40() { if(objectsByPin[40]!=NULL) objectsByPin[40]->isr(); }
 
 
 void TMC5160::isr() {
 	// retrieve interrupt event flags
 	uint32_t rampStat;
 	if(!getRegister(TMCR_RAMP_STAT, &rampStat)) {
-		LOG_ERROR("Error reading ramp status register from interrupt");
+		LOGF_ERROR("%s: Error reading ramp status register from interrupt", getAxisName());
 		return;
 	}
 	// check which event caused the interrupt
@@ -283,31 +283,59 @@ void TMC5160::isr() {
 		hasReachedTarget=true;
 		if(speedToRestore!=0)
 			if(!setTargetSpeed(speedToRestore))
-				LOGF_ERROR("Position reached, unable to restore speed %d", speedToRestore);
-			else
-				LOGF_INFO("Position reached, restored speed %d", speedToRestore);
+				LOGF_ERROR("%s: Position reached, unable to restore speed %d", getAxisName(), speedToRestore);
+		/*	else
+				LOGF_INFO("%s: Position reached, restored speed %d", getAxisName(), speedToRestore);
 		else
-			LOG_INFO("Position reached");	
+			LOGF_INFO("%s: Position reached", getAxisName()); */
 	} else if(rampStat && (1ul<<6)) { // event_stop_sg
-		LOG_INFO("Stall detected");	
+		LOGF_INFO("%s Stall detected", getAxisName());	
+	} else {
+		LOGF_WARN("%s: Interrupt without position or ramp flag", getAxisName());
 	}
 	// clear the flags by writing all ones
 	if(!setRegister(TMCR_RAMP_STAT, (1ul<<14)-1)) { 
-		LOG_ERROR("Error clearing ramp status register from interrupt");
+		LOGF_ERROR("%s: Error clearing ramp status register from interrupt", getAxisName());
 		return;
 	}
 }
 
 
-TMC5160::TMC5160(const char *theIndiDeviceName, int theDiag0Pin) : SPI(theIndiDeviceName), diag0Pin(theDiag0Pin), deviceStatus((enum TMCStatusFlags) 0) {
+void TMC5160::isrInit() {
+	// setup ISR
+	if(diag0Pin>=0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
+		LOGF_INFO("%s: Setting up ISR on broadcom GPIO pin %d", getAxisName(), diag0Pin);
+
+		initGPIO();
+		objectsByPin[diag0Pin]=this;
+		pinMode(diag0Pin, INPUT);
+		pullUpDnControl(diag0Pin, PUD_OFF); // Pi has 50 KOhms or more, TMC needs 47 KOhms or less, use external pullups    
+		wiringPiISR(diag0Pin, INT_EDGE_RISING /* FALLING */, isrsByPin[diag0Pin]);
+
+		// clear interrupt flags by writing all ones
+		if(!setRegister(TMCR_RAMP_STAT, (1ul<<14)-1))
+			LOGF_ERROR("%s: Error clearing ramp status register", getAxisName());
+	} else 
+		LOGF_INFO("%s: No ISR for for device", getAxisName());
+}
+
+
+TMC5160::TMC5160(const char *theIndiDeviceName, const char *theAxisName, int theDiag0Pin) 
+: SPI(theIndiDeviceName, theAxisName), diag0Pin(theDiag0Pin), deviceStatus((enum TMCStatusFlags) 0) {
     for(int i=0; i<(int) TMCR_NUM_REGISTERS; i++)
-    	cachedRegisterValues[i]=0;
+		cachedRegisterValues[i]=0;
+}
+
+
+TMC5160::~TMC5160() {
+	if(diag0Pin>=0 && diag0Pin<=RPI_PHYS_PIN_MAX)
+		objectsByPin[diag0Pin]=NULL;
 }
 
 
 bool TMC5160::setTargetSpeed(int32_t value) {
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting target speed to %'+d", value);
+		LOGF_DEBUG("%s: Setting target speed to %'+d", getAxisName(), value);
 
 	// FIXME: min/max position limits are not checked when setting a speed.
 	// Would need a background timer with e.g. speed-based 1s lookahead.
@@ -334,7 +362,7 @@ bool TMC5160::setRegisterBits(uint8_t address, uint32_t value, uint32_t firstBit
 	uint32_t mask=(uint32_t) ( (((uint64_t)1)<<numBits)-1 ) << firstBit;
 	int tmp2=(tmp & ~mask) | ((value<<firstBit) & mask);
 	if(debugLevel>=TMC_DEBUG_REGISTERS)
-		LOGF_DEBUG("    old %08x value %08x firstBit %d numBits %d mask %08x new %08x", tmp, value, firstBit, numBits, mask, tmp2);
+		LOGF_DEBUG("%s:    old %08x value %08x firstBit %d numBits %d mask %08x new %08x", getAxisName(), tmp, value, firstBit, numBits, mask, tmp2);
 	return setRegister(address, tmp2);
 }
 
