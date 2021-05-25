@@ -91,7 +91,7 @@ void ISSnoopDevice(XMLEle *root) {
 // Public class members
 //
 
-PimocoMount::PimocoMount() : stepperHA(getDeviceName(), HA_DIAG0_PIN), stepperDec(getDeviceName(), DEC_DIAG0_PIN),
+PimocoMount::PimocoMount() : stepperHA(getDeviceName(), "HA", HA_DIAG0_PIN), stepperDec(getDeviceName(), "Dec", DEC_DIAG0_PIN),
     spiDeviceFilenameHA("/dev/spidev0.0"), spiDeviceFilenameDec("/dev/spidev0.1") {
 	setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
 
