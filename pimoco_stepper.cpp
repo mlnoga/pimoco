@@ -380,25 +380,22 @@ bool Stepper::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
 
 	// wait until position reached or timeout occurs
 	for(int i=0; ; i++) {
-		usleep(1000l);  // 1 ms
-		int32_t pos;
-		if(!getPosition(&pos))
-			return false;
-
-		if(pos==value) {
-			Timestamp now;
-			uint64_t elapsedMs=now.msSince(start);
-			if(debugLevel>=TMC_DEBUG_DEBUG)
-				LOGF_DEBUG("%s: Reached target position at %'+d after %d polls in %llus %llums", getAxisName(), value, i, elapsedMs/1000, elapsedMs%1000);
-			// if(!setTargetPositionReachedEvent(1)) // clear event flag - no longer needed, ISR does this
-			//	return false;			
-			return true;  // position reached
-		}
+		usleep(10000l);  // 10 ms
 
 		Timestamp now;
 		uint64_t elapsedMs=now.msSince(start);
 		if(timeoutMs>0 && elapsedMs>(uint64_t) timeoutMs)
 			return false; // timeout
+
+		if(hasReachedTarget) {
+			int32_t pos;
+			if(!getPosition(&pos))
+				return false; // timeout
+
+			if(debugLevel>=TMC_DEBUG_DEBUG)
+				LOGF_DEBUG("%s: Reached target position at %'+d after %d polls in %llus %llums", getAxisName(), value, i, elapsedMs/1000, elapsedMs%1000);
+			return true;  // position reached
+		}
 	}
 }
 
