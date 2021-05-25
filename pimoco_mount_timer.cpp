@@ -79,13 +79,27 @@ bool PimocoMount::ReadScopeStatus() {
 
         case SCOPE_SLEWING:
     		if(!stepperHA.hasReachedTargetPos()) {
-	        	// while HA axis is moving, reissue HA goto command updated with current time
+	        	// while HA axis is moving, recalculate HA target based on current time
                 double deviceHA, deviceDec;
                 deviceFromEquatorial(&deviceHA, &deviceDec, gotoTargetRA, gotoTargetDec, gotoTargetPS);
-				if(!stepperHA.setTargetPositionHours(deviceHA, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0 )) {
-					LOG_ERROR("Updating goto HA target");
-					return false;
-				}
+
+                // check current HA position
+                double curDeviceHA;
+                if(!stepperHA.getPositionHours(&curDeviceHA)) {
+                    LOG_ERROR("HA: Reading position");
+                    return false;
+                }
+                double absHADistArcsec=abs(deviceHA-curDeviceHA)*60*60;
+                if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
+                    LOGF_DEBUG("HA: target %f device %f abs_distance_arcsec %f", deviceHA, curDeviceHA, absHADistArcsec);
+
+                // reissue goto command if HA difference is above threshold
+                if(absHADistArcsec>=0.25) {
+     				if(!stepperHA.setTargetPositionHours(deviceHA, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0 )) {
+	   				    LOG_ERROR("HA: Updating goto target");
+		  			 return false;
+				    }
+                }
         	} else if(stepperDec.hasReachedTargetPos()) {
         		// physical axis tracking has been re-enabled by the ISRs already
         		// restore tracking state visible to INDI once both axes have reached target

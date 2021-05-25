@@ -38,7 +38,7 @@ public:
 	};
 
 	// Creates device connected via SPI
-	SPI(const char *theIndiDeviceName) : fd(-1), debugLevel(TMC_DEBUG_DEBUG), indiDeviceName(theIndiDeviceName) { }
+	SPI(const char *theIndiDeviceName, const char *theAxisName) : fd(-1), debugLevel(TMC_DEBUG_DEBUG), indiDeviceName(theIndiDeviceName), axisName(theAxisName) { }
 
 	// Destroys this device connected via SPI
 	~SPI() { close(); }
@@ -52,7 +52,7 @@ public:
 	// Returns true if the device is connected, else false
 	bool isConnected() const { return fd>=0; }
 
-	// Sends the given number of bytes to the device, then retrieves the same number of bytes. 
+	// Sends the given number of bytes to the device, then retrieves the same number of bytes.  Number of bytes must be dividable by 5.
 	// Returns true on success, else false
 	virtual bool sendReceive(const uint8_t *tx, uint8_t *rx, uint32_t numBytes);
 
@@ -65,6 +65,9 @@ public:
 	// Get Indi device name. Used by logging macros
 	const char *getDeviceName() const { return indiDeviceName; }
 
+	// Get Axis name. Used by logging macros
+	const char *getAxisName() const { return axisName; }
+
 
 protected:
 	// File descriptor for the SPI device
@@ -75,6 +78,10 @@ protected:
 
 	// INDI device name. Used by logging macros
 	const char *indiDeviceName;
+
+	// Axis name. Used by logging macros
+	const char *axisName;
+
 
 public:
 	// Default SPI device

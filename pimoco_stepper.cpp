@@ -41,7 +41,8 @@ const double   Stepper::defaultStepsPerRev =400;
 const double   Stepper::defaultGearRatio   =3*144;
 
 
-Stepper::Stepper(const char *theIndiDeviceName, int diag0Pin) : TMC5160(theIndiDeviceName, diag0Pin), 
+Stepper::Stepper(const char *theIndiDeviceName, const char *theAxisName, int diag0Pin)
+					 : TMC5160(theIndiDeviceName, theAxisName, diag0Pin), 
 					 minPosition(defaultMinPosition), maxPosition(defaultMaxPosition),
 				     maxGoToSpeed(defaultMaxGoToSpeed), hardwareMaxCurrent_mA(defaultHardwareMaxCurrent_mA),
 				     stepsPerRev(defaultStepsPerRev), gearRatio(defaultGearRatio) {
@@ -56,6 +57,59 @@ bool Stepper::open(const char *deviceName) {
 	if(!TMC5160::open(deviceName))
 		return false;
 
+	if((!Handshake()) || (!Init())) {
+		TMC5160::close();
+		return false;
+	}
+
+	return true;
+}
+
+
+bool Stepper::Handshake() {
+	// try sending test pattern and capturing response
+	const uint32_t len=5*5;
+	uint8_t tx[len]={
+		TMCR_X_ENC | 0x80, 0x01, 0x02, 0x03, 0x04,  // set XENC to 0x01020304
+		TMCR_X_ENC       , 0x11, 0x12, 0x13, 0x14,  // get XENC
+		TMCR_X_ENC | 0x80, 0x21, 0x22, 0x23, 0x24,  // set XENC to 0x21222324
+		TMCR_X_ENC       , 0x31, 0x32, 0x33, 0x34,  // get XENC
+		TMCR_X_ENC       , 0x41, 0x42, 0x43, 0x44,  // get XENC
+	};
+	uint8_t rx[len];
+	if(!sendReceive(tx, rx, len)) {
+		LOGF_WARN("%s: Handshake failed: send/receive", getAxisName());
+		return false;
+	}
+
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		for(uint32_t i=0; i<5; i++)
+			LOGF_DEBUG("%d: sent %02x %02x %02x %02x %02x   recv %02x %02x %02x %02x %02x", i, tx[5*i+0], tx[5*i+1], tx[5*i+2], tx[5*i+3], tx[5*i+4],  rx[5*i+0], rx[5*i+1], rx[5*i+2], rx[5*i+3], rx[5*i+4]  );
+
+	// validate responses
+	if(rx[5*1+1]!=tx[5*0+1] || rx[5*1+2]!=tx[5*0+2] || rx[5*1+3]!=tx[5*0+3] || rx[5*1+4]!=tx[5*0+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after first set", getAxisName(), rx[5*1+1], rx[5*1+2], rx[5*1+3], rx[5*1+4]);
+		return false;
+	}
+	if(rx[5*2+1]!=tx[5*0+1] || rx[5*2+2]!=tx[5*0+2] || rx[5*2+3]!=tx[5*0+3] || rx[5*2+4]!=tx[5*0+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after first get", getAxisName(), rx[5*2+1], rx[5*2+2], rx[5*2+3], rx[5*2+4]);
+		return false;
+	}
+	if(rx[5*3+1]!=tx[5*2+1] || rx[5*3+2]!=tx[5*2+2] || rx[5*3+3]!=tx[5*2+3] || rx[5*3+4]!=tx[5*2+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after second set", getAxisName(), rx[5*3+1], rx[5*3+2], rx[5*3+3], rx[5*3+4]);
+		return false;
+	}
+	if(rx[5*4+1]!=tx[5*2+1] || rx[5*4+2]!=tx[5*2+2] || rx[5*4+3]!=tx[5*2+3] || rx[5*4+4]!=tx[5*2+4] ) {
+		LOGF_WARN("%s: Handshake failed: got %02x %02x %02x %02x after second get", getAxisName(), rx[5*4+1], rx[5*4+2], rx[5*4+3], rx[5*4+4]);
+		return false;
+	}
+
+	LOGF_INFO("%s: Handshake successful", getAxisName());
+	return true;
+}
+
+
+bool Stepper::Init() {
 	// Stop device, just in case it was left running
 	if(!stop())
 		return false;
@@ -73,20 +127,10 @@ bool Stepper::open(const char *deviceName) {
 		return false;
 	if(!setDiag0EnableInterruptStep(0))
 		return false;
+	if(!setDiag0PushPull(1))
+		return false;
 
-	// setup ISR
-	if(diag0Pin>0 && diag0Pin<=RPI_PHYS_PIN_MAX) {
-		LOGF_INFO("Setting up ISR on broadcom GPIO pin %d for device %s", diag0Pin, deviceName);
-
-		initGPIO();
-		objectsByPin[diag0Pin]=this;
-		pinMode(diag0Pin, INPUT);
-		pullUpDnControl(diag0Pin, PUD_UP);    
-		wiringPiISR(diag0Pin, INT_EDGE_FALLING, isrsByPin[diag0Pin]);
-
-		isr(); // call once to initialize
-	} else 
-		LOGF_INFO("No ISR for for device %s", deviceName);
+	isrInit();
 
 	// Set motor current parameters
 	//
@@ -156,6 +200,7 @@ bool Stepper::open(const char *deviceName) {
 	if(!setChopperHEnd(0))
 		return false;
 
+	LOGF_INFO("%s: Auto-tuning...", getAxisName());
 	if(!chopperAutoTuneStealthChop(500, 5000))
 		return false;
 
@@ -163,21 +208,8 @@ bool Stepper::open(const char *deviceName) {
 	if(!setHoldCurrent(100)) 
 		return false;
 
-	// FIXME
-	//
-	
-	// // if performance isn't good up to VMax, enable switch from StealthChop to SpreadCycle above threshold speed (e.g. 16x sidereal?)
-	// if(!setTPWMThreshold(tbd))
-	//	return false;
-	// // if that results in coil overshoot during deceleration
-	// if(!setPWMLimit(tbd))
-	//	return false;
-
-	// configure coolstep load adaptive current control
-	// configure high velocity mode with switch to fullstep, and enable DCStep to avoid lost steps when too fast
-
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Successfully initialized device %s", deviceName!=NULL ? deviceName : "NULL");
+		LOGF_DEBUG("%s: Successfully initialized", getAxisName());
 	
 	return true;
 }
@@ -196,7 +228,7 @@ bool Stepper::chopperAutoTuneStealthChop(uint32_t secondSteps, uint32_t timeoutM
 	if(!getPosition(&startPos))
 		return false;
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Current position is %'+d", startPos);
+		LOGF_DEBUG("%s: Current position is %'+d", getAxisName(), startPos);
 
 	uint32_t microRes;
 	if(!getChopperMicroRes(&microRes))
@@ -225,14 +257,14 @@ bool Stepper::setTargetVelocityArcsecPerSec(double arcsecPerSec) {
 	int32_t ustepsPerTRounded=arcsecPerSecToNative(arcsecPerSec);
 
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting target velocity to %f arcsec/sec i.e. %d usteps/stepper_t", arcsecPerSec, ustepsPerTRounded);
+		LOGF_DEBUG("%s: Settingtarget velocity to %f arcsec/sec i.e. %d usteps/stepper_t", getAxisName(), arcsecPerSec, ustepsPerTRounded);
 
 	return setTargetSpeed(ustepsPerTRounded);
 }
 
 int32_t Stepper::arcsecPerSecToNative(double arcsecPerSec) {
 	if(stepsPerRev==0 || gearRatio==0 || clockHz==0) {
-		LOGF_ERROR("Zero value detected: %d steps/rev %d gear ratio %d Hz clock", stepsPerRev, gearRatio, clockHz);
+		LOGF_ERROR("%s: Zero value detected: %d steps/rev %d gear ratio %d Hz clock", getAxisName(), stepsPerRev, gearRatio, clockHz);
 	}
 
 	uint32_t ustepsPerRev=256*stepsPerRev*gearRatio;
@@ -268,12 +300,12 @@ bool Stepper::getPositionInUnits(double *result, double full) {
 
 bool Stepper::syncPosition(int32_t value) {
 	if(value<minPosition || value>maxPosition) {
-		LOGF_ERROR("Unable to sync to position %'+d outside defined limits [%'+d, %'+d]", value, minPosition, maxPosition);
+		LOGF_ERROR("%s: Unable to sync to position %'+d outside defined limits [%'+d, %'+d]", getAxisName(), value, minPosition, maxPosition);
 		return false;
 	}
 
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Syncing current position to %'+d", value);
+		LOGF_DEBUG("%s: Syncing current position to %'+d", getAxisName(), value);
 
 	// Syncing in positioning mode moves the axis, so we temporarily enter holding mode
 	uint32_t rm;
@@ -299,25 +331,29 @@ bool Stepper::syncPositionInUnits(double value, double full) {
 
 bool Stepper::setTargetPosition(int32_t value, int32_t restoreSpeed) {
 	if(value<minPosition || value>maxPosition) {
-		LOGF_ERROR("Unable to set target position %'+d outside defined limits [%'+d, %'+d]", value, minPosition, maxPosition);
+		LOGF_ERROR("%s: Unable to set target position %'+d outside defined limits [%'+d, %'+d]", getAxisName(), value, minPosition, maxPosition);
 		return false;
 	}
 
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting target position to %'+d", value);
+		LOGF_DEBUG("%s: Setting target position to %'+d", getAxisName(), value);
 
 	// if position already reached, switch to desired tracking speed directly
 	uint32_t actual;
 	if(!getRegister(TMCR_XACTUAL, &actual)) {
-		LOG_ERROR("Error reading position");
+		LOGF_ERROR("%s: Error reading position", getAxisName());
 		return false;
 	}
+	if(debugLevel>=TMC_DEBUG_DEBUG)
+		LOGF_DEBUG("%s: Actual position %d", getAxisName(), actual);
+
 	if(actual==(uint32_t) value) {
-		LOG_INFO("Already at target");
+		if(debugLevel>=TMC_DEBUG_DEBUG)
+			LOGF_DEBUG("%s: Already at target", getAxisName());
 		setTargetSpeed(restoreSpeed);
 		hasReachedTarget=true;
 		return true; 
-	}
+	}  
 
 	// FIXME: race condition if Goto is already active
 	setSpeedToRestore(restoreSpeed);
@@ -325,7 +361,8 @@ bool Stepper::setTargetPosition(int32_t value, int32_t restoreSpeed) {
 
 	return setRegister(TMCR_RAMPMODE, 0) &&                  // select absolute positioning mode
 		   setRegister(TMCR_VMAX, maxGoToSpeed) &&           // restore max speed in case setTargetSpeed() overwrote it
-	       setRegister(TMCR_XTARGET, (uint32_t) value);      // set target position to initiate movement
+	       setRegister(TMCR_XTARGET, (uint32_t) value) &&    // set target position to initiate movement
+		   setRegister(TMCR_RAMP_STAT, (1ul<<14)-1);         // clear ramp status register to enable interrupts
 }
 
 
@@ -343,25 +380,22 @@ bool Stepper::setTargetPositionBlocking(int32_t value, uint32_t timeoutMs) {
 
 	// wait until position reached or timeout occurs
 	for(int i=0; ; i++) {
-		usleep(1000l);  // 1 ms
-		int32_t pos;
-		if(!getPosition(&pos))
-			return false;
-
-		if(pos==value) {
-			Timestamp now;
-			uint64_t elapsedMs=now.msSince(start);
-			if(debugLevel>=TMC_DEBUG_DEBUG)
-				LOGF_DEBUG("Reached target position at %'+d after %d polls in %llus %llums", value, i, elapsedMs/1000, elapsedMs%1000);
-			// if(!setTargetPositionReachedEvent(1)) // clear event flag - no longer needed, ISR does this
-			//	return false;			
-			return true;  // position reached
-		}
+		usleep(10000l);  // 10 ms
 
 		Timestamp now;
 		uint64_t elapsedMs=now.msSince(start);
 		if(timeoutMs>0 && elapsedMs>(uint64_t) timeoutMs)
 			return false; // timeout
+
+		if(hasReachedTarget) {
+			int32_t pos;
+			if(!getPosition(&pos))
+				return false; // timeout
+
+			if(debugLevel>=TMC_DEBUG_DEBUG)
+				LOGF_DEBUG("%s: Reached target position at %'+d after %d polls in %llus %llums", getAxisName(), value, i, elapsedMs/1000, elapsedMs%1000);
+			return true;  // position reached
+		}
 	}
 }
 
@@ -371,12 +405,12 @@ bool Stepper::setMinPosition(int32_t value) {
 	if(!getPosition(&currentPos))
 		return false;
 	if(currentPos<value) {
-		LOGF_ERROR("Unable to set minimum position limit %'+d above current position %'+d", value, currentPos);
+		LOGF_ERROR("%s: Unable to set minimum position limit %'+d above current position %'+d", getAxisName(), value, currentPos);
 		return false;
 	}
 
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting minimum position limit to %'+d", value);
+		LOGF_DEBUG("%s: Setting minimum position limit to %'+d", getAxisName(), value);
 	minPosition=value; 
 	return true; 
 }
@@ -387,12 +421,12 @@ bool Stepper::setMaxPosition(int32_t value) {
 	if(!getPosition(&currentPos))
 		return false;
 	if(currentPos>value) {
-		LOGF_ERROR("Unable to set maximum position limit %'+d below current position %'+d", value, currentPos);
+		LOGF_ERROR("%s: Unable to set maximum position limit %'+d below current position %'+d", getAxisName(), value, currentPos);
 		return false;
 	}
 
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting maximum position limit to %'+d", value);
+		LOGF_DEBUG("%s: Setting maximum position limit to %'+d", getAxisName(), value);
 	maxPosition=value; 
 	return true; 
 }
@@ -461,7 +495,7 @@ bool Stepper::setRunCurrent(uint32_t value_mA, bool bestPerformanceHint) {
 	if(!getRunCurrent(&resulting_mA))
 		return false;
 	if(debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting run current %dmA with global scaler %d and iRun %d, resulting in %dmA", value_mA, gcs, cs, resulting_mA);
+		LOGF_DEBUG("%s: Setting run current %dmA with global scaler %d and iRun %d, resulting in %dmA", getAxisName(), value_mA, gcs, cs, resulting_mA);
 
 	// restore the hold current setting
 	return setHoldCurrent(holdCurrent_mA, true);
@@ -503,7 +537,7 @@ bool Stepper::setHoldCurrent(uint32_t value_mA, bool suppressDebugOutput) {
 	if(!getHoldCurrent(&resulting_mA))
 		return false;
 	if(!suppressDebugOutput && debugLevel>=TMC_DEBUG_DEBUG)
-		LOGF_DEBUG("Setting hold current %dmA with iHold %d, resulting in %dmA", value_mA, cs, resulting_mA);
+		LOGF_DEBUG("%s: Setting hold current %dmA with iHold %d, resulting in %dmA", getAxisName(), value_mA, cs, resulting_mA);
 	return true;
 }
 

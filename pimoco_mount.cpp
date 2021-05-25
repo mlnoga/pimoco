@@ -91,7 +91,7 @@ void ISSnoopDevice(XMLEle *root) {
 // Public class members
 //
 
-PimocoMount::PimocoMount() : stepperHA(getDeviceName(), HA_DIAG0_PIN), stepperDec(getDeviceName(), DEC_DIAG0_PIN),
+PimocoMount::PimocoMount() : stepperHA(getDeviceName(), "HA", HA_DIAG0_PIN), stepperDec(getDeviceName(), "Dec", DEC_DIAG0_PIN),
     spiDeviceFilenameHA("/dev/spidev0.0"), spiDeviceFilenameDec("/dev/spidev0.1") {
 	setVersion(CDRIVER_VERSION_MAJOR, CDRIVER_VERSION_MINOR);
 
@@ -140,11 +140,16 @@ bool PimocoMount::Connect() {
 	LOGF_INFO("Attempting connection to Dec on %s", spiDeviceFilenameDec);
 	if(!stepperDec.open(spiDeviceFilenameDec)) {
 		LOGF_WARN("Connection to Dec on %s failed", spiDeviceFilenameDec);
+		stepperHA.close();
 		return false;
 	}
-	if(!ReadScopeStatus())
-		return false;
 	LOGF_INFO("Connection to Dec on %s successful", spiDeviceFilenameDec);
+
+	if(!ReadScopeStatus()) {
+		stepperHA.close();
+		stepperDec.close();
+		return false;
+	}
 
 	// Restore park status. Must be performed after connection
 	if(isParked())
