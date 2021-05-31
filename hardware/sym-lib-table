@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name pimoco)(type Legacy)(uri ${KIPRJMOD}/pimoco.lib)(options "")(descr ""))
+)

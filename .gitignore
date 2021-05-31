@@ -34,3 +34,7 @@
 indi_pimoco_focuser
 indi_pimoco_mount
 spitest
+
+# KiCad files
+*-bak
+*-cache
