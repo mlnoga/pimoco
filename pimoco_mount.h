@@ -78,6 +78,9 @@ protected:
     virtual bool SetTrackMode(uint8_t mode) override;
     virtual bool SetTrackRate(double raRate, double deRate) override;
 
+    // syncs custom tracking rate to average motion since last sync
+    bool syncTrackRate();
+
     virtual bool MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) override;
     virtual bool MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) override;
     virtual bool SetSlewRate(int index) override;
@@ -181,6 +184,12 @@ protected:
     // Stores if the scope was tracking before a goto slew was initiated. Required to work around INDI bug 
     bool    wasTrackingBeforeSlew=false;
 
+    // Device HA/Dec position of last track rate sync button press
+    double syncTrackRateHA=0, syncTrackRateDec=0;
+
+    // Milliseconds timestamp of last tracking rate sync
+    uint64_t syncTrackRateMs=0;
+
     // Target equatorial position for gotos. For periodic refresh of the HA-based actual hardware gotos as time progresses
     double  gotoTargetRA=0, gotoTargetDec=0;
 
@@ -224,6 +233,9 @@ protected:
 
     INumber SlewRatesN[NUM_SLEW_RATES]={};
     INumberVectorProperty SlewRatesNP;
+
+    ISwitch SyncTrackRateS[2]={};
+    ISwitchVectorProperty SyncTrackRateSP;
 
     ISwitch SyncToParkS[1]={};
     ISwitchVectorProperty SyncToParkSP;

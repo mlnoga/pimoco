@@ -18,6 +18,7 @@
 
 
 #include "pimoco_mount.h"
+#include "pimoco_time.h"
 #include <libindi/indilogger.h>
 #include <libindi/indicom.h>  // for rangeHA etc.
 
@@ -55,6 +56,33 @@ bool PimocoMount::SetTrackMode(uint8_t mode) {
 	       	  trackRateLabels[mode], mode, rateRA, rateDec);
 
 	return applyTracking();
+}
+
+
+bool PimocoMount::syncTrackRate() {
+	// get time and position
+	Timestamp ts;
+	uint64_t now=ts.ms();
+	double deviceHA, deviceDec;
+	if(!stepperHA.getPositionHours(&deviceHA) || !stepperDec.getPositionDegrees(&deviceDec))
+		return false;
+
+	// update tracking rate if prior sync is available
+	if(SyncTrackRateS[0].s==ISS_ON) {
+		uint64_t deltaMs=now - syncTrackRateMs;
+		double arcsecPerSecRA =(deviceHA  - syncTrackRateHA )*1000.0*60.0*60.0*15.0/(double) deltaMs; // HA is in hours
+		double arcsecPerSecDec=(deviceDec - syncTrackRateDec)*1000.0*60.0*60.0     /(double) deltaMs; // Dec is in degrees
+		SetTrackRate(arcsecPerSecRA, arcsecPerSecDec);
+	    SyncTrackRateSP.s=IPS_OK;
+	} else
+	    SyncTrackRateSP.s=IPS_BUSY;
+
+	// update sync position and and trigger GUI update
+	syncTrackRateHA =deviceHA;
+	syncTrackRateDec=deviceDec;
+	syncTrackRateMs =now;
+	SyncTrackRateS[0].s=ISS_ON;
+    IDSetSwitch(&SyncTrackRateSP, nullptr);
 }
 
 

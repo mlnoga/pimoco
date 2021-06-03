@@ -19,7 +19,6 @@
 
 #include "pimoco_mount.h"
 
-
 bool PimocoMount::initProperties() {
 	if(!INDI::Telescope::initProperties()) 
 		return false;
@@ -55,6 +54,9 @@ bool PimocoMount::initProperties() {
 	IUFillNumber(&AltLimitsN[0], "MIN", "Min [dd:mm:ss]", "%010.6m", -5, 90, 1,  0);
 	IUFillNumber(&AltLimitsN[1], "MAX", "Max [dd:mm:ss]", "%010.6m", -5, 90, 1, 90);
 	IUFillNumberVector(&AltLimitsNP, AltLimitsN, 2, getDeviceName(), "ALT_LIMITS", "Altitude limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
+
+	IUFillSwitch(&SyncTrackRateS[0], "SYNC","Sync", ISS_OFF);
+	IUFillSwitchVector(&SyncTrackRateSP, SyncTrackRateS, 1, getDeviceName(), "CUSTOM_TRACK_RATE_SYNC", "Custom rate", MAIN_CONTROL_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
 
 	IUFillSwitch(&SyncToParkS[0], "SYNC_TO_PARK","Sync to park", ISS_OFF);
 	IUFillSwitchVector(&SyncToParkSP, SyncToParkS, 1, getDeviceName(), "SYNC_TO_PARK", "Sync to park", MAIN_CONTROL_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
@@ -104,6 +106,22 @@ bool PimocoMount::updateProperties() {
 	    defineProperty(&SlewRatesNP);
 	    defineProperty(&HALimitsNP);
 	    defineProperty(&AltLimitsNP);
+
+	    deleteProperty(AbortSP.name);
+	    deleteProperty(TrackModeSP.name); 
+	    deleteProperty(TrackStateSP.name);
+	    deleteProperty(TrackRateNP.name);
+	    deleteProperty(ParkSP.name);
+	    deleteProperty(PierSideSP.name);
+
+	    defineProperty(&PierSideSP);
+	    defineProperty(&AbortSP);
+	    defineProperty(&TrackStateSP);
+	    defineProperty(&TrackModeSP);
+	    defineProperty(&SyncTrackRateSP);
+	    defineProperty(&TrackRateNP);
+
+	    defineProperty(&ParkSP);
 	    defineProperty(&SyncToParkSP);
 
 	    defineProperty(&GuiderSpeedNP);
@@ -115,6 +133,7 @@ bool PimocoMount::updateProperties() {
 	    deleteProperty(SlewRatesNP.name);
 	    deleteProperty(HALimitsNP.name);
 	    deleteProperty(AltLimitsNP.name);
+	    deleteProperty(SyncTrackRateSP.name);
 	    deleteProperty(SyncToParkSP.name);
 
 	    deleteProperty(GuiderSpeedNP.name);
@@ -224,6 +243,9 @@ bool PimocoMount::ISNewSwitch(const char *dev, const char *name, ISState *states
 		return true;
 	} else if(res==0)
 		return false;
+
+	if(!strcmp(name, SyncTrackRateSP.name))
+		return syncTrackRate();
 
 	if(!strcmp(name, SyncToParkSP.name))
 		return SyncDeviceHADec(GetAxis1Park(), GetAxis2Park());
