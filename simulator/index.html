@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>German equatorial mount telescope simulator</title>
+		<style>
+			body { margin: 0; }
+		</style>
+	</head>
+	<body bgcolor="#000000">
+
+<div style="color:#ffffff;" id="title">German equatorial mount telescope simulator</div>
+<div style="color:#ffffff;">Side of pier (phys): <span style="color:#ffffff;" id="sopLabel">X</span></div>
+<div style="color:#ffffff;">Pointing state: <span style="color:#ffffff;" id="posLabel">X</span></div>
+
+<script type="module">
+  // Find the latest version by visiting https://cdn.skypack.dev/three.
+  import * as THREE from 'https://cdn.skypack.dev/three@0.129.0';
+  import { TrackballControls } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/controls/TrackballControls.js';
+  import { GUI } from 'https://cdn.skypack.dev/three@0.129.0/examples/jsm/libs/dat.gui.module.js';
+
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize( window.innerWidth, window.innerHeight);
+window.addEventListener( 'resize', onWindowResize );
+document.body.appendChild( renderer.domElement );
+
+const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+camera.position.z = 10;
+
+const controls = new TrackballControls( camera, renderer.domElement );
+controls.target.set( 0, 0, 0 )
+
+const scene = new THREE.Scene();
+
+scene.add( new THREE.AmbientLight( 0xffffff, 0.25 ) );
+
+const light = new THREE.PointLight(0xffffff, 0.5);
+light.position.set(10, 10, 10);
+scene.add(light);
+
+const light2 = new THREE.PointLight(0xffffff, 0.5);
+light2.position.set(-10, 10, 10);
+scene.add(light2);
+
+const mOffWhite = new THREE.MeshPhongMaterial({ color: 0xfffff0 });
+const mDarkGrey = new THREE.MeshPhongMaterial({ color: 0x404040 });
+const mMedGrey  = new THREE.MeshPhongMaterial({ color: 0x808080 });
+const mMedGreen = new THREE.MeshPhongMaterial({ color: 0x008010 });
+
+const pillar= new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 10, 32), mMedGrey);
+pillar.position.y=-10;
+scene.add(pillar);
+
+const base= new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 0.5, 32), mOffWhite);
+base.position.y=10/2 + 0.5/2;
+pillar.add(base);
+
+const altAdust= new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mOffWhite);
+altAdust.position.y=0.25+0.5;
+base.add(altAdust);
+
+const raHolder= new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mOffWhite);
+raHolder.rotation.x= 50 * Math.PI/180;
+raHolder.position.y=1;
+altAdust.add(raHolder);
+
+const raAxis= new THREE.Mesh(new THREE.BoxGeometry(1, 1, 2), mOffWhite);
+raAxis.position.z=-1.5;
+raHolder.add(raAxis);
+
+const counterweightAxis= new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 5, 32), mDarkGrey);
+counterweightAxis.position.z=-0.5;
+counterweightAxis.position.y=-(0.5 + 2.5);
+raAxis.add(counterweightAxis);
+
+const counterweight= new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.0, 1.0, 32), mOffWhite);
+counterweight.position.y=-1.75;
+counterweightAxis.add(counterweight);
+
+const decHolder= new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mOffWhite);
+decHolder.position.z=-0.5;
+decHolder.position.y=1;
+raAxis.add(decHolder);
+
+const decAxis= new THREE.Mesh(new THREE.BoxGeometry(1, 0.5, 1), mOffWhite);
+decAxis.position.y=0.75;
+decHolder.add(decAxis);
+
+const dovetail= new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 4), mOffWhite);
+dovetail.position.y=0.5*(0.5+0.25);
+decAxis.add(dovetail);
+
+const scope= new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 6.0, 32), mDarkGrey);
+scope.rotation.x=Math.PI*90/180;
+scope.position.y=0.5*(0.25+2*1.5);
+dovetail.add(scope);
+
+const visionRay= new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 2, 32), mMedGreen);
+visionRay.position.y=-0.5*(6+2);
+scope.add(visionRay);
+
+const visionCap= new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.0, 32), mMedGreen);
+visionCap.rotation.x=Math.PI*180/180;
+visionCap.position.y=-0.5*(2+1);
+visionRay.add(visionCap);
+
+
+const gui = new GUI(),
+	propsHA = {
+		get 'HA_h'() {
+			return raAxis.rotation.z * 12.0 / Math.PI - 6;
+		},
+		set 'HA_h'( v ) {
+			raAxis.rotation.z = (v + 6) * Math.PI / 12.0;
+		}
+	},
+	propsDec = {
+		get 'Dec_deg'() {
+			return decAxis.rotation.y * 180.0 / Math.PI + 90;
+		},
+		set 'Dec_deg'( v ) {
+			decAxis.rotation.y = (v - 90) * Math.PI / 180.0;
+		}
+	};
+
+propsHA.HA_h=-6;
+propsDec.Dec_deg=90;
+gui.add( propsHA, 'HA_h', -12, 12);
+gui.add( propsDec, 'Dec_deg', -90, 270);
+
+const sopLabel = document.getElementById("sopLabel");
+const posLabel = document.getElementById("posLabel");
+
+function animate() {
+	requestAnimationFrame( animate );
+	//raAxis.rotation.z += 0.01;
+	//decAxis.rotation.y += 0.01;
+	controls.update();
+	renderer.render( scene, camera );
+
+	sopLabel.innerHTML= (propsHA.HA_h>-6 && propsHA.HA_h<6) ? "west" : "east";
+	posLabel.innerHTML= (propsDec.Dec_deg>=-90 && propsDec.Dec_deg<=90) ? "normal" : "beyond the pole";
+}
+
+function onWindowResize() {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+animate();
+
+		</script>
+	</body>
+</html>

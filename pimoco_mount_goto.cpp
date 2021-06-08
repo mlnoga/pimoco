@@ -54,39 +54,36 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
     if(!forcePierSide) {
 	    double distRA=equRA-EqN[0].value, distDec=equDec-EqN[1].value;
     	double distArcsec=sqrt(distRA*distRA*(360.0/24.0)*(360.0/24.0) + distDec*distDec)*60.0*60.0;
-    	if(distArcsec<=0.1) {
+    	if(distArcsec<=0.5) {
     		equPS = (equPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
     		LOGF_INFO("Distance %.1f arcsec, flip requested", distArcsec);
     	}
 	}
 
     double deviceHA, deviceDec;
-
-    deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, getPierSide());
-    LOGF_INFO("Target device HA %f Dec %f with current pier side", deviceHA, deviceDec);
-
-
     deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
-    LOGF_INFO("Target device HA %f Dec %f with target pier side", deviceHA, deviceDec);
 
     if(!checkLimitsPosHA(deviceHA, deviceDec)) {
         if(forcePierSide) {
-            LOGF_ERROR("Goto RA %f Dec %f pier %s outside mount HA limits [%f, %f]",
-                       equRA, equDec, getPierSideStr(equPS), HALimitsN[0].value, HALimitsN[1].value);
+            LOGF_ERROR("Goto RA %f Dec %f pier %s device HA %f Dec %f outside mount HA limits [%f, %f]",
+                       equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value);
             return false;
         } else { // try meridian flip
+            LOGF_WARN("Goto RA %f Dec %f pier %s device HA %f Dec %f outside mount HA limits [%f, %f], trying other side",
+                       equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value);
+
             equPS= (equPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
             deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
 
             if(!checkLimitsPosHA(deviceHA, deviceDec))  {
-                LOGF_ERROR("Goto RA %f Dec %f outside mount HA limits [%f, %f] on both pier sides",
-                           equRA, equDec, HALimitsN[0].value, HALimitsN[1].value);
+                LOGF_ERROR("Goto RA %f Dec %f pier %s device HA %f Dec %f outside mount HA limits [%f, %f]",
+                           equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value);
                 return false;
             }
         }
     }
 
-   	LOGF_INFO("Goto equatorial RA %f Dec %f pier %s device HA %f Dec %f", equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec);
+   	LOGF_INFO("Goto RA %f Dec %f pier %s device HA %f Dec %f", equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec);
 
  	if(TrackState==SCOPE_TRACKING)
  		wasTrackingBeforeSlew=true;

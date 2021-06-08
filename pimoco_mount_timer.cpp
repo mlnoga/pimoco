@@ -103,7 +103,7 @@ bool PimocoMount::ReadScopeStatus() {
         	} else if(stepperDec.hasReachedTargetPos()) {
         		// physical axis tracking has been re-enabled by the ISRs already
         		// restore tracking state visible to INDI once both axes have reached target
-        		LOGF_INFO("Goto reached target position RA %f Dec %f", gotoTargetRA, gotoTargetDec);
+        		LOGF_INFO("Goto reached target RA %f Dec %f pier %s device HA %f Dec %f", equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec);
 				manualSlewArcsecPerSecRA=manualSlewArcsecPerSecDec=0;
 				guiderActiveRA=guiderActiveDec=false;
         		TrackState=wasTrackingBeforeSlew ? SCOPE_TRACKING : SCOPE_IDLE;

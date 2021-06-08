@@ -25,15 +25,28 @@
 
 void PimocoMount::equatorialFromDevice(double *equRA, double *equDec, TelescopePierSide *equPS, double deviceHA, double deviceDec, double lst) {
     double equHA;
+
+    // Conversion to equatorial coordinates per the ASCOM definition. However, note that
+    // ASCOM encodes pointing state (normal/beyond the pole) in the side of pier field.
+    // See https://ascom-standards.org/Help/Platform/html/P_ASCOM_DeviceInterface_ITelescopeV3_SideOfPier.htm
+    // Indi needs physical sie of pier reporting (scope is east/west of pier), so we
+    // override the ASCOM definition of the field.
+
     if(abs(deviceDec)<=90) {
-        *equPS =PIER_EAST; // normal pointing state, east pointing west
+        // normal pointing state, east pointing west
+        //*equPS =PIER_EAST; // ignore ASCOM definition
         equHA  =rangeHA(deviceHA);
         *equDec=rangeDec(deviceDec);
     } else {
-        *equPS =PIER_WEST; // above the pole pointing state, west pointing east
+        // above the pole pointing state, west pointing east
+        //*equPS =PIER_WEST; // ignore ASCOM definition
         equHA  =rangeHA(deviceHA+12);
         *equDec=rangeDec(180.0-deviceDec);
     }
+
+    // set side of pier based on physical telescope position
+    const auto dHA=rangeHA(deviceHA);
+    *equPS = (dHA>-6 && dHA<6) ? PIER_WEST : PIER_EAST;
 
     if(lst<0)
         lst=getLocalSiderealTime();
@@ -50,7 +63,9 @@ void PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, doub
         lst=getLocalSiderealTime();
     double equHA=rangeHA(lst - equRA);
 
-    if(equPS==PIER_EAST || equPS==PIER_UNKNOWN) {
+    const auto impliedPS=(equHA>-6 && equHA<6) ? PIER_WEST : PIER_EAST;
+    if(impliedPS==equPS) {
+    //if(equPS==PIER_EAST || equPS==PIER_UNKNOWN) {
         // normal pointing state, east pointing west
         *deviceHA =rangeHA(equHA);
         *deviceDec=rangeDec(equDec);
