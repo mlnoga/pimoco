@@ -83,6 +83,7 @@ bool PimocoMount::syncTrackRate() {
 	syncTrackRateMs =now;
 	SyncTrackRateS[0].s=ISS_ON;
     IDSetSwitch(&SyncTrackRateSP, nullptr);
+    return true;
 }
 
 
