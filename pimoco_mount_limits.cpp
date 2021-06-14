@@ -58,7 +58,7 @@ void PimocoMount::equatorialFromDevice(double *equRA, double *equDec, TelescopeP
 }
 
 
-void PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst) {
+bool PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst) {
     if(lst<0)
         lst=getLocalSiderealTime();
     double equHA=rangeHA(lst - equRA);
@@ -75,9 +75,19 @@ void PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, doub
         *deviceDec=180.0-rangeDec(equDec);
     }
 
+    // bring position into mount limits, if possible
+    while(*deviceHA<HALimitsN[0].value)
+        (*deviceHA)+=24;
+    while(*deviceHA>HALimitsN[1].value)
+        (*deviceHA)-=24;
+    bool valid=((*deviceHA)>=HALimitsN[0].value) && ((*deviceHA)<=HALimitsN[1].value);
+    if(!valid)
+
     if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG) 
         LOGF_DEBUG("devFromEq: device HA %f Dec %f from equ HA %f RA %f Dec %f pier %d %s @ lst %f", 
                   *deviceHA, *deviceDec, equHA, equRA, equDec, equPS, getPierSideStr(equPS), lst);
+
+    return valid;
 }
 
 
@@ -102,19 +112,6 @@ bool PimocoMount::checkLimitsPosAlt(double equRA, double equDec) {
     }
 
 	return inside_t0;
-}
-
-
-bool PimocoMount::checkLimitsPosHA(double deviceHA, double deviceDec) {
-    if(HALimitsN[0].value <= HALimitsN[1].value) {
-        // -------------|#####################|----------
-        //             min    valid          max
-        return (deviceHA>=HALimitsN[0].value) && (deviceHA<=HALimitsN[1].value);
-    } else {
-        // #############|---------------------|##########
-        //             max    valid          min
-        return (deviceHA>=HALimitsN[0].value) || (deviceHA<=HALimitsN[1].value);
-    }
 }
 
 
@@ -149,16 +146,13 @@ bool PimocoMount::checkLimitsPosSpeed(double equRA, double equDec, TelescopePier
 
     // convert to device coordinates
     double deviceHA, deviceDec;
-    deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
+    bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
 
-    bool insideHA=checkLimitsPosHA(deviceHA, deviceDec);
     if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
-        LOGF_DEBUG("Device HA %f Dec %f HA limits [%f, %f] insideHA %d", deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value, insideHA);
+        LOGF_DEBUG("Device HA %f Dec %f HA limits [%f, %f] insideHA %d", deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value, valid);
 
-    // check HA limits
-    if(!insideHA) {
+    if(!valid)
         return false;
-    }
 
    return true;
 }

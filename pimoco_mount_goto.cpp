@@ -23,10 +23,14 @@
 
 
 bool PimocoMount::Sync(double equRA, double equDec) {
-    LOGF_INFO("Syncing to equatorial position RA %f Dec", equRA, equDec);
+    LOGF_INFO("Syncing to RA %f Dec %f", equRA, equDec);
 
     double deviceHA, deviceDec;
-    deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, getPierSide());
+    bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, getPierSide());
+    if(!valid) {
+        LOGF_ERROR("Syncing position: invalid device HA %f Dec %f", deviceHA, deviceDec);
+        return false;
+    }
 
     return SyncDeviceHADec(deviceHA, deviceDec);
 }
@@ -61,9 +65,9 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
 	}
 
     double deviceHA, deviceDec;
-    deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
+    bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
 
-    if(!checkLimitsPosHA(deviceHA, deviceDec)) {
+    if(!valid) {
         if(forcePierSide) {
             LOGF_ERROR("Goto RA %f Dec %f pier %s device HA %f Dec %f outside mount HA limits [%f, %f]",
                        equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value);
@@ -73,9 +77,9 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
                        equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value);
 
             equPS= (equPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
-            deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
+            bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
 
-            if(!checkLimitsPosHA(deviceHA, deviceDec))  {
+            if(!valid)  {
                 LOGF_ERROR("Goto RA %f Dec %f pier %s device HA %f Dec %f outside mount HA limits [%f, %f]",
                            equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value);
                 return false;

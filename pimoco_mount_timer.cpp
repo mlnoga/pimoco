@@ -81,7 +81,17 @@ bool PimocoMount::ReadScopeStatus() {
     		if(!stepperHA.hasReachedTargetPos()) {
 	        	// while HA axis is moving, recalculate HA target based on current time
                 double deviceHA, deviceDec;
-                deviceFromEquatorial(&deviceHA, &deviceDec, gotoTargetRA, gotoTargetDec, gotoTargetPS);
+                bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, gotoTargetRA, gotoTargetDec, gotoTargetPS);
+                if(!valid) {
+                	// deal with edge case that goto target has moved too far beyond the meridian 
+                	// since the goto command was issued, which can be healed with a flip.
+         			auto newTargetPS= (gotoTargetPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
+                	valid=deviceFromEquatorial(&deviceHA, &deviceDec, gotoTargetRA, gotoTargetDec, newTargetPS);
+                	if(!valid) {
+	                	Abort();
+	                	break;                		
+                	}
+                }
 
                 // check current HA position
                 double curDeviceHA;

@@ -141,14 +141,12 @@ protected:
     // Converts device coordinates to equatorial coordinates. If local sidereal time below zero is given, uses current time 
     void equatorialFromDevice(double *equRA, double *equDec, TelescopePierSide *equPS, double deviceHA, double deviceDec, double lst=-1);
 
-    // Converts equatorial coordinates into device coordinates. If local sidereal time below zero is given, uses current time 
-    void deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst=-1);
+    // Converts equatorial coordinates into device coordinates. If local sidereal time below zero is given, uses current time.
+    // Returns true on success, false if the device coordniates are outside defined bounds 
+    bool deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst=-1);
 
     // Checks given equatorial position against mount altitude limits. Returns true if within bounds, else false 
     bool checkLimitsPosAlt(double equRA, double equDec);
-
-    // Checks given device position against mount hour angle limits. Returns true if within bounds, else false 
-    bool checkLimitsPosHA(double deviceHA, double deviceDec);
 
     // Checks given position and direction of motion against mount limits. Returns true if motion OK, else false 
     bool checkLimitsPosSpeed(double equRA, double equDec, TelescopePierSide equPS, double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);

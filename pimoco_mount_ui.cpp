@@ -47,8 +47,8 @@ bool PimocoMount::initProperties() {
 	IUFillNumber(&SlewRatesN[3], SlewRateS[3].name, SlewRateS[3].label, "%.1f", 0, 1600, 16, 1000);
 	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
-	IUFillNumber(&HALimitsN[0], "MIN", "Min [hh:mm:ss]", "%010.6m", -12, 12, 0.25, rangeHA(-6-6.5));
-	IUFillNumber(&HALimitsN[1], "MAX", "Max [hh:mm:ss]", "%010.6m", -12, 12, 0.25, rangeHA(-6+6.5));
+	IUFillNumber(&HALimitsN[0], "MIN", "Min [hh:mm:ss]", "%010.6m", -6 -12,  -6 +12, 0.25, -6 - 6.5);
+	IUFillNumber(&HALimitsN[1], "MAX", "Max [hh:mm:ss]", "%010.6m", -6 -12,  -6 +12, 0.25, -6 + 6.5);
 	IUFillNumberVector(&HALimitsNP, HALimitsN, 2, getDeviceName(), "HA_LIMITS", "Hour angle limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
 	IUFillNumber(&AltLimitsN[0], "MIN", "Min [dd:mm:ss]", "%010.6m", -5, 90, 1,  0);
