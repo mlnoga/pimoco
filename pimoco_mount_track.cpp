@@ -41,7 +41,8 @@ bool PimocoMount::Abort() {
 
 bool PimocoMount::SetTrackEnabled(bool enabled) {
 	LOG_INFO(enabled ? "Enabling tracking" : "Disabling tracking");
-	// caller sets TrackState=SCOPE_TRACKING, no need to do it here
+	TrackState=enabled ? SCOPE_TRACKING : SCOPE_IDLE; 
+	// caller resets this if return code is false
 	return applyTracking();
 }
 
@@ -96,11 +97,33 @@ bool PimocoMount::SetTrackRate(double rateRA, double rateDec) {
 }
 
 
+double PimocoMount::getArcsecPerSecHA() {
+    if(TrackState==SCOPE_IDLE && manualSlewArcsecPerSecRA!=0) 
+        return manualSlewArcsecPerSecRA;
+    else if(TrackState==SCOPE_TRACKING && manualSlewArcsecPerSecRA!=0)
+        return manualSlewArcsecPerSecRA;
+    else if(TrackState==SCOPE_TRACKING)
+        return getTrackRateRA();
+    return 0; 
+}
+
+
+double PimocoMount::getArcsecPerSecDec() {
+    if(TrackState==SCOPE_IDLE && manualSlewArcsecPerSecDec!=0) 
+        return manualSlewArcsecPerSecDec;
+    else if(TrackState==SCOPE_TRACKING && manualSlewArcsecPerSecDec!=0)
+        return manualSlewArcsecPerSecDec;
+    else if(TrackState==SCOPE_TRACKING)
+        return getTrackRateDec();
+    return 0; 
+}
+
+
 bool PimocoMount::applyTracking(bool updateRA, bool updateDec) {
 	double rateRA =(TrackState==SCOPE_TRACKING) ? getTrackRateRA()  : 0;
 	double rateDec=(TrackState==SCOPE_TRACKING) ? getTrackRateDec() : 0;
 
-	if(!applyLimitsPosSpeed(rateRA, rateDec))
+	if(!applyLimits(rateRA, rateDec))
 		return false;
 
 	if((updateRA  && !stepperHA .setTargetVelocityArcsecPerSec(rateRA )) ||

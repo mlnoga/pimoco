@@ -134,6 +134,12 @@ protected:
         return (mode==TRACK_CUSTOM) ? trackRateCustomDec : 0;
     }
 
+    // Returns current tracking or manual slew speed for HA
+    double getArcsecPerSecHA();
+
+    // Returns current tracking or manual slew speed for Dec
+    double getArcsecPerSecDec();
+
     // Apply current tracking status, mode and rate to steppers. Checks mount limits and resets scope to idle if violated. Returns true on success, else failure 
     bool applyTracking(bool updateRA=true, bool updateDec=true);
 
@@ -145,14 +151,23 @@ protected:
     // Returns true on success, false if the device coordniates are outside defined bounds 
     bool deviceFromEquatorial(double *deviceHA, double *deviceDec, double equRA, double equDec, TelescopePierSide equPS, double lst=-1);
 
-    // Checks given equatorial position against mount altitude limits. Returns true if within bounds, else false 
-    bool checkLimitsPosAlt(double equRA, double equDec);
-
-    // Checks given position and direction of motion against mount limits. Returns true if motion OK, else false 
-    bool checkLimitsPosSpeed(double equRA, double equDec, TelescopePierSide equPS, double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
+    // Converts equatorial coordinates to device coordinates. If Julian date below zero is given, uses current time.
+    void horizonFromEquatorial(double *horAlt, double *horAz, double eqRA, double eqDec, double jd=-1);
 
     // Applies mount limits to current position and direction of motion. Stops all motion and updates scope status if out of bounds and in wrong direction. Returns true if motion OK, else false 
-    bool applyLimitsPosSpeed(double arcsecPerSecHa, double arcsecPerSecDec, bool log=true);
+    bool applyLimits(double arcsecPerSecHA, double arcsecPerSecDec);
+
+    // Checks given hour angle against mount limits. Returns true if within bounds, else false 
+    bool checkLimitsHA(double deviceHA);
+
+    // Checks given hour angle and hour angle velocity against mount limits. Returns true if within bounds, else false 
+    bool checkLimitsHA(double deviceHA, double haArcsecPerSec);
+
+    // Checks given altitude against mount altitude limits. Returns true if within bounds, else false 
+    bool checkLimitsAlt(double horAlt);
+
+    // Checks given altitude and altitude velocity against mount altitude limits. Returns true if within bounds, else false 
+    bool checkLimitsAlt(double horAlt, double deviceHA, double deviceDec, double haArcsecPerSec, double decArcsecPerSec, double jd, double lst);
 
 
     // Physical connector GPIO pin numbers for stepper DIAG0 lines 
@@ -194,6 +209,9 @@ protected:
     // Target side of pier for gotos
     TelescopePierSide gotoTargetPS=PIER_EAST;
 
+    // Speed up polling frequency once gotos are closer than this number of degrees
+    static const double gotoSpeedupPollingDegrees;
+
     // Manual slewing speed active on the given axis, or zero if inactive
     double manualSlewArcsecPerSecRA=0, manualSlewArcsecPerSecDec=0;
 
@@ -210,6 +228,15 @@ protected:
 
     // UI controls
     //
+
+    INumber DeviceCoordN[2]={};
+    INumberVectorProperty DeviceCoordNP;
+
+    INumber TimeN[2]={};
+    INumberVectorProperty TimeNP;
+
+    INumber AltAzN[2]={};
+    INumberVectorProperty AltAzNP;
 
     INumber HAMotorN[Stepper::MOTORN_SIZE]={};
     INumberVectorProperty HAMotorNP;

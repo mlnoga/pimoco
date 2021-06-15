@@ -41,32 +41,44 @@ bool PimocoMount::initProperties() {
 							  "DEC_MOTOR", "Motor", "DEC_MSWITCH", "Switches", "DEC_RAMP", "Ramp", DEC_TAB);
 
 	// Initialize mount properties
+	IUFillNumber(&DeviceCoordN[0], "HA", "HA [hh:mm:ss]", "%010.6m", -6-12, -6+12, 0.25, -6);
+	IUFillNumber(&DeviceCoordN[1], "DEC", "DEC [hh:mm:ss]", "%010.6m", -90, 270, 5, 90);
+	IUFillNumberVector(&DeviceCoordNP, DeviceCoordN, 2, getDeviceName(), "DEVICE_COORD", "Device Coord.", MAIN_CONTROL_TAB, IP_RO, 0, IPS_IDLE);
+
+	IUFillNumber(&TimeN[0], "JD", "Julian day", "%f", 0, 0, 0, 0);
+	IUFillNumber(&TimeN[1], "LST", "LST [hh:mm:ss]", "%010.6m", 0, 24, 0.25, 0);
+	IUFillNumberVector(&TimeNP, TimeN, 2, getDeviceName(), "Time", "Time", MAIN_CONTROL_TAB, IP_RO, 0, IPS_IDLE);
+
+	IUFillNumber(&AltAzN[0], "ALT", "ALT [hh:mm:ss]", "%010.6m", -10, 90, 1, 0);
+	IUFillNumber(&AltAzN[1], "AZ", "AZ [hh:mm:ss]", "%010.6m", 0, 360, 4, 0);
+	IUFillNumberVector(&AltAzNP, AltAzN, 2, getDeviceName(), "ALT_AZ", "Horizon Coord.", MAIN_CONTROL_TAB, IP_RO, 0, IPS_IDLE);
+
 	IUFillNumber(&SlewRatesN[0], SlewRateS[0].name, SlewRateS[0].label, "%.1f", 0, 1600, 16, 0.5);
 	IUFillNumber(&SlewRatesN[1], SlewRateS[1].name, SlewRateS[1].label, "%.1f", 0, 1600, 16, 16);
 	IUFillNumber(&SlewRatesN[2], SlewRateS[2].name, SlewRateS[2].label, "%.1f", 0, 1600, 16, 250);
 	IUFillNumber(&SlewRatesN[3], SlewRateS[3].name, SlewRateS[3].label, "%.1f", 0, 1600, 16, 1000);
-	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
+	IUFillNumberVector(&SlewRatesNP, SlewRatesN, NUM_SLEW_RATES, getDeviceName(), "SLEW_RATES", "Slew Rates [x sidereal]", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
 	IUFillNumber(&HALimitsN[0], "MIN", "Min [hh:mm:ss]", "%010.6m", -6 -12,  -6 +12, 0.25, -6 - 6.5);
 	IUFillNumber(&HALimitsN[1], "MAX", "Max [hh:mm:ss]", "%010.6m", -6 -12,  -6 +12, 0.25, -6 + 6.5);
-	IUFillNumberVector(&HALimitsNP, HALimitsN, 2, getDeviceName(), "HA_LIMITS", "Hour angle limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
+	IUFillNumberVector(&HALimitsNP, HALimitsN, 2, getDeviceName(), "HA_LIMITS", "Hour Angle Limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
-	IUFillNumber(&AltLimitsN[0], "MIN", "Min [dd:mm:ss]", "%010.6m", -5, 90, 1,  0);
+	IUFillNumber(&AltLimitsN[0], "MIN", "Min [dd:mm:ss]", "%010.6m", -5, 90, 1, -5);
 	IUFillNumber(&AltLimitsN[1], "MAX", "Max [dd:mm:ss]", "%010.6m", -5, 90, 1, 90);
-	IUFillNumberVector(&AltLimitsNP, AltLimitsN, 2, getDeviceName(), "ALT_LIMITS", "Altitude limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
+	IUFillNumberVector(&AltLimitsNP, AltLimitsN, 2, getDeviceName(), "ALT_LIMITS", "Altitude Limits", MOTION_TAB, IP_RW, 0, IPS_IDLE);
 
 	IUFillSwitch(&SyncTrackRateS[0], "SYNC","Sync", ISS_OFF);
-	IUFillSwitchVector(&SyncTrackRateSP, SyncTrackRateS, 1, getDeviceName(), "CUSTOM_TRACK_RATE_SYNC", "Custom rate", MAIN_CONTROL_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+	IUFillSwitchVector(&SyncTrackRateSP, SyncTrackRateS, 1, getDeviceName(), "CUSTOM_TRACK_RATE_SYNC", "Custom Rate", MAIN_CONTROL_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
 
 	IUFillSwitch(&SyncToParkS[0], "SYNC_TO_PARK","Sync to park", ISS_OFF);
-	IUFillSwitchVector(&SyncToParkSP, SyncToParkS, 1, getDeviceName(), "SYNC_TO_PARK", "Sync to park", MAIN_CONTROL_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+	IUFillSwitchVector(&SyncToParkSP, SyncToParkS, 1, getDeviceName(), "SYNC_TO_PARK", "Sync to Park", MAIN_CONTROL_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
 
 	// Guider properties
 	IUFillNumber(&GuiderSpeedN[0], "VALUE", "Rate [x sidereal]", "%.2f", 0, 1, 0.05, 0.75);
-	IUFillNumberVector(&GuiderSpeedNP, GuiderSpeedN, 1, getDeviceName(), "GUIDER_SPEED", "Guider speed", GUIDE_TAB, IP_RW, 0, IPS_IDLE);
+	IUFillNumberVector(&GuiderSpeedNP, GuiderSpeedN, 1, getDeviceName(), "GUIDER_SPEED", "Guider Speed", GUIDE_TAB, IP_RW, 0, IPS_IDLE);
 
 	IUFillNumber(&GuiderMaxPulseN[0], "VALUE", "Max [ms]", "%.f", 0, 10000, 100, 2500);
-	IUFillNumberVector(&GuiderMaxPulseNP, GuiderMaxPulseN, 1, getDeviceName(), "GUIDER_MAX_PULSE", "Guider pulse", GUIDE_TAB, IP_RW, 0, IPS_IDLE);
+	IUFillNumberVector(&GuiderMaxPulseNP, GuiderMaxPulseN, 1, getDeviceName(), "GUIDER_MAX_PULSE", "Guider Pulse", GUIDE_TAB, IP_RW, 0, IPS_IDLE);
 
 	// load configuration data from file, as there is no device with own storage
 	loadConfig(true, HAMotorNP.name);
@@ -107,6 +119,7 @@ bool PimocoMount::updateProperties() {
 	    defineProperty(&HALimitsNP);
 	    defineProperty(&AltLimitsNP);
 
+	    deleteProperty(EqNP.name);
 	    deleteProperty(AbortSP.name);
 	    deleteProperty(TrackModeSP.name); 
 	    deleteProperty(TrackStateSP.name);
@@ -114,7 +127,11 @@ bool PimocoMount::updateProperties() {
 	    deleteProperty(ParkSP.name);
 	    deleteProperty(PierSideSP.name);
 
+	    defineProperty(&TimeNP);
+	    defineProperty(&DeviceCoordNP);
+	    defineProperty(&EqNP);
 	    defineProperty(&PierSideSP);
+	    defineProperty(&AltAzNP);
 	    defineProperty(&AbortSP);
 	    defineProperty(&TrackStateSP);
 	    defineProperty(&TrackModeSP);
@@ -133,6 +150,10 @@ bool PimocoMount::updateProperties() {
 	    deleteProperty(SlewRatesNP.name);
 	    deleteProperty(HALimitsNP.name);
 	    deleteProperty(AltLimitsNP.name);
+
+	    deleteProperty(TimeNP.name);
+	    deleteProperty(DeviceCoordNP.name);
+	    deleteProperty(AltAzNP.name);
 	    deleteProperty(SyncTrackRateSP.name);
 	    deleteProperty(SyncToParkSP.name);
 

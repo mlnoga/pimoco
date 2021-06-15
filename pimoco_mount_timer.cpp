@@ -21,7 +21,8 @@
 #include <libindi/indilogger.h>
 #include <libindi/indicom.h>  // for rangeHA etc.
 #include <time.h>
-
+#include <libnova/julian_day.h>
+#include <libnova/sidereal_time.h>
 
 void PimocoMount::TimerHit() {
 	if(!isConnected())
@@ -36,6 +37,12 @@ void PimocoMount::TimerHit() {
 	if(!rc) {
         EqNP.s = IPS_ALERT;
         IDSetNumber(&EqNP, nullptr);
+    }
+	if(DeviceCoordNP.s!=EqNP.s || TimeNP.s!=EqNP.s || AltAzNP.s!=EqNP.s) {
+        DeviceCoordNP.s = TimeNP.s = AltAzNP.s = EqNP.s;
+        IDSetNumber(&DeviceCoordNP, nullptr);
+        IDSetNumber(&TimeNP, nullptr);
+        IDSetNumber(&AltAzNP, nullptr);
     }
 
 	uint32_t pollingPeriod=getNextTimerInterval();
@@ -52,62 +59,86 @@ uint32_t PimocoMount::getNextTimerInterval() {
 		guiderTimerHit();
 		return getNextTimerInterval();		
 	} else if(TrackState==SCOPE_SLEWING) {
-	    // during gotos, continuously update the HA target position based on system time		
-		return 100; 
-	} else
-		return getCurrentPollingPeriod();
+	    // during gotos, when close continuously update the HA target position based on system time
+	    double distLimit=gotoSpeedupPollingDegrees*0.001*(double)getCurrentPollingPeriod();
+    	if((abs(EqN[0].value-gotoTargetRA)*15 < distLimit) && 
+    	   (abs(EqN[1].value-gotoTargetDec)   < distLimit)    )
+    		return 100; 
+    	// fallthrough
+	}
+	return getCurrentPollingPeriod();
 }
 
 
 bool PimocoMount::ReadScopeStatus() {
-	double deviceHA, deviceDec, equRA, equDec; // hour angle and RA in hours, declination in degrees
-    TelescopePierSide equPS;
-
+	// update device coordinates
+	double deviceHA, deviceDec; // hour angle in hours, declination in degrees
 	if(!stepperHA.getPositionHours(&deviceHA) || !stepperDec.getPositionDegrees(&deviceDec))
-		return false;
+	   	return false;
+	DeviceCoordN[0].value=deviceHA;
+	DeviceCoordN[1].value=deviceDec;
 
-    equatorialFromDevice(&equRA, &equDec, &equPS, deviceHA, deviceDec);
+	// check device HA limits
+	double arcsecPerSecHA=getArcsecPerSecHA();
+	if(!checkLimitsHA(deviceHA, arcsecPerSecHA)) {
+		Abort();
+	   	return false;
+	}
+
+	// update time
+	double jd=ln_get_julian_from_sys();
+	double lst=range24(ln_get_apparent_sidereal_time(jd) - (360.0 - LocationN[LOCATION_LONGITUDE].value) / 15.0);
+	TimeN[0].value=jd;
+	TimeN[1].value=lst;
+
+	// update equatorial coordinates
+	double equRA, equDec; // RA in hours, declination in degrees
+    TelescopePierSide equPS;
+    equatorialFromDevice(&equRA, &equDec, &equPS, deviceHA, deviceDec, lst);
     NewRaDec(equRA, equDec); 
     setPierSide(equPS);
 
+    // update horizon coordinates
+    double horAlt, horAz;
+    horizonFromEquatorial(&horAlt, &horAz, equRA, equDec, jd);
+    AltAzN[0].value=horAlt;
+    AltAzN[1].value=horAz;
+	AltAzNP.s=IPS_OK;
+
+	// check device Alt limits
+	double arcsecPerSecDec=getArcsecPerSecDec();
+	if(!checkLimitsAlt(horAlt, deviceHA, deviceDec, arcsecPerSecHA, arcsecPerSecDec, jd, lst)) {
+		Abort();
+	   	return false;
+	}
+
 	switch(TrackState) {
         case SCOPE_IDLE:
-        	if(manualSlewArcsecPerSecRA!=0 || manualSlewArcsecPerSecDec!=0)
-        		if(!applyLimitsPosSpeed(manualSlewArcsecPerSecRA, manualSlewArcsecPerSecDec))
-        			return false;
-        	break;
+        	break; // do nothing
 
         case SCOPE_SLEWING:
     		if(!stepperHA.hasReachedTargetPos()) {
 	        	// while HA axis is moving, recalculate HA target based on current time
-                double deviceHA, deviceDec;
-                bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, gotoTargetRA, gotoTargetDec, gotoTargetPS);
+                double targetDevHA, targetDevDec;
+                bool valid=deviceFromEquatorial(&targetDevHA, &targetDevDec, gotoTargetRA, gotoTargetDec, gotoTargetPS);
                 if(!valid) {
                 	// deal with edge case that goto target has moved too far beyond the meridian 
                 	// since the goto command was issued, which can be healed with a flip.
          			auto newTargetPS= (gotoTargetPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
-                	valid=deviceFromEquatorial(&deviceHA, &deviceDec, gotoTargetRA, gotoTargetDec, newTargetPS);
+                	valid=deviceFromEquatorial(&targetDevHA, &targetDevDec, gotoTargetRA, gotoTargetDec, newTargetPS);
                 	if(!valid) {
 	                	Abort();
-	                	break;                		
+					   	return false;
                 	}
                 }
 
-                // check current HA position
-                double curDeviceHA;
-                if(!stepperHA.getPositionHours(&curDeviceHA)) {
-                    LOG_ERROR("HA: Reading position");
-                    return false;
-                }
-                double absHADistArcsec=abs(deviceHA-curDeviceHA)*60*60;
-                if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
-                    LOGF_DEBUG("HA: target %f device %f abs_distance_arcsec %f", deviceHA, curDeviceHA, absHADistArcsec);
-
                 // reissue goto command if HA difference is above threshold
+                double absHADistArcsec=abs(targetDevHA-deviceHA)*60*60;
                 if(absHADistArcsec>=0.25) {
-     				if(!stepperHA.setTargetPositionHours(deviceHA, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0 )) {
-	   				    LOG_ERROR("HA: Updating goto target");
-		  			 return false;
+     				if(!stepperHA.setTargetPositionHours(targetDevHA, wasTrackingBeforeSlew ? stepperHA.arcsecPerSecToNative(getTrackRateRA()) : 0 )) {
+	   					LOG_ERROR("HA: Updating goto target");
+	   					Abort();
+			  			return false;
 				    }
                 }
         	} else if(stepperDec.hasReachedTargetPos()) {
@@ -121,12 +152,7 @@ bool PimocoMount::ReadScopeStatus() {
         	break;
 
         case SCOPE_TRACKING:
-        	if(manualSlewArcsecPerSecRA!=0 || manualSlewArcsecPerSecDec!=0) {
-        		if(!applyLimitsPosSpeed(manualSlewArcsecPerSecRA, manualSlewArcsecPerSecDec))
-        			return false;
-        	} else
-			    applyTracking();
-        	break;
+        	break; // do nothing
 
         case SCOPE_PARKING:
         	if(stepperHA.hasReachedTargetPos() && stepperDec.hasReachedTargetPos())
@@ -137,7 +163,5 @@ bool PimocoMount::ReadScopeStatus() {
         	break;  // do nothing 
    	}
 
-
-	return true;
+   	return true;
 }
-

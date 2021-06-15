@@ -35,7 +35,7 @@ bool PimocoMount::MoveNS(INDI_DIR_NS dir, TelescopeMotionCommand command) {
 	if(stepperDec.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
 		LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "north" : "south"), abs(xSidereal), abs(arcsecPerSec));
 
-	if(!applyLimitsPosSpeed(0, arcsecPerSec))
+	if(!applyLimits(0, arcsecPerSec))
 		return false;
 
 	if(!stepperDec.setTargetVelocityArcsecPerSec(arcsecPerSec)) {
@@ -62,7 +62,7 @@ bool PimocoMount::MoveWE(INDI_DIR_WE dir, TelescopeMotionCommand command) {
 	if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
 		LOGF_DEBUG("Moving %s at %.1fx sidereal rate (%.2f arcsec/s)", (xSidereal>=0 ? "west" : "east"), abs(xSidereal), abs(arcsecPerSec));
 
-	if(!applyLimitsPosSpeed(arcsecPerSec, 0))
+	if(!applyLimits(arcsecPerSec, 0))
 		return false;
 
 	if(!stepperHA.setTargetVelocityArcsecPerSec(arcsecPerSec)) {

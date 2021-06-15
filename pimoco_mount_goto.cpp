@@ -20,6 +20,11 @@
 #include "pimoco_mount.h"
 #include <libindi/indilogger.h>
 #include <libindi/indicom.h>  // for rangeHA etc.
+#include <libnova/julian_day.h>
+#include <libnova/sidereal_time.h>
+
+
+const double PimocoMount::gotoSpeedupPollingDegrees=5;
 
 
 bool PimocoMount::Sync(double equRA, double equDec) {
@@ -48,7 +53,13 @@ bool PimocoMount::SyncDeviceHADec(double deviceHA, double deviceDec) {
 
 
 bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, bool forcePierSide) {
-    if(!checkLimitsPosAlt(equRA, equDec)) {
+    // calculate horizontal alt/az coordinates of the target
+    double jd=ln_get_julian_from_sys();
+    double lst=range24(ln_get_apparent_sidereal_time(jd) - (360.0 - LocationN[LOCATION_LONGITUDE].value) / 15.0);
+    double horAlt, horAz;
+    horizonFromEquatorial(&horAlt, &horAz, equRA, equDec, jd);
+
+    if(!checkLimitsAlt(horAlt)) {
         LOGF_ERROR("Goto RA %f Dec %f outside mount altitude limits [%f, %f]", 
                    equRA, equDec, AltLimitsN[0].value, AltLimitsN[1].value);
         return false;
@@ -64,8 +75,9 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
     	}
 	}
 
+    // Calculate device hour angle and declination coordinates of the target 
     double deviceHA, deviceDec;
-    bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
+    bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS, lst);
 
     if(!valid) {
         if(forcePierSide) {
@@ -77,7 +89,7 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
                        equRA, equDec, getPierSideStr(equPS), deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value);
 
             equPS= (equPS==PIER_WEST) ? PIER_EAST : PIER_WEST;
-            bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
+            bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS, lst);
 
             if(!valid)  {
                 LOGF_ERROR("Goto RA %f Dec %f pier %s device HA %f Dec %f outside mount HA limits [%f, %f]",
@@ -109,7 +121,10 @@ bool PimocoMount::Goto(double equRA, double equDec, TelescopePierSide equPS, boo
   	manualSlewArcsecPerSecRA=manualSlewArcsecPerSecDec=0;
 	guiderActiveRA=guiderActiveDec=false;
 
-	SetTimer(100);  // Workaround: increase polling frequency to continuously update HA target during slew
+    double distLimit=gotoSpeedupPollingDegrees*0.001*(double)getCurrentPollingPeriod();
+    if((abs(EqN[0].value-gotoTargetRA)*15 < distLimit) && 
+       (abs(EqN[1].value-gotoTargetDec)   < distLimit)    )
+    	SetTimer(100);  // Workaround: when close, increase polling frequency to continuously update HA target during slew
 
     TrackState = SCOPE_SLEWING;
   	return true;

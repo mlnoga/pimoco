@@ -91,78 +91,75 @@ bool PimocoMount::deviceFromEquatorial(double *deviceHA, double *deviceDec, doub
 }
 
 
-bool PimocoMount::checkLimitsPosAlt(double equRA, double equDec) {
-    // convert equatorial position to horizon coordinates
-    // Note that unlike Indi, which uses hours for RA, libnova expects RA in degrees
-   	struct ln_equ_posn equ_t0={equRA*(360.0/24.0), equDec};
-   	double jd=ln_get_julian_from_sys();
-   	struct ln_hrz_posn hrz_t0;
-   	
-    get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hrz_t0);
-
-    // check alt limits
-   	bool inside_t0=(hrz_t0.alt>=AltLimitsN[0].value) && (hrz_t0.alt<=AltLimitsN[1].value);
-	if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG) {
-        if(!inside_t0) {
-            LOGF_INFO("RA %f Dec %f Az %f Alt %f inside %d", equ_t0.ra, equ_t0.dec, hrz_t0.az, hrz_t0.alt, inside_t0);
-            LOGF_INFO("JD %f lat %f lon %f", jd, lnobserver.lat, lnobserver.lng);
-        }
-        else
-            LOGF_DEBUG("RA %f Dec %f Az %f Alt %f inside %d", equ_t0.ra, equ_t0.dec, hrz_t0.az, hrz_t0.alt, inside_t0);
-    }
-
-	return inside_t0;
-}
-
-
-bool PimocoMount::checkLimitsPosSpeed(double equRA, double equDec, TelescopePierSide equPS, double haArcsecPerSec, double decArcsecPerSec, bool log) {
-    // convert equatorial position to horizon coordinates
-    // Note that unlike Indi, which uses hours for RA, libnova expects RA in degrees
+void PimocoMount::horizonFromEquatorial(double *horAlt, double *horAz, double equRA, double equDec, double jd) {
     struct ln_equ_posn equ_t0={equRA*(360.0/24.0), equDec};
-   	double jd=ln_get_julian_from_sys();
-   	struct ln_hrz_posn hrz_t0;
-   	get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hrz_t0);
+    if(jd<0)
+        jd=ln_get_julian_from_sys();
+    struct ln_hrz_posn hor;
 
-    // check alt limits
-   	bool inside_t0=(hrz_t0.alt>=AltLimitsN[0].value) && (hrz_t0.alt<=AltLimitsN[1].value);
-	if(inside_t0) {
-        if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
-		   	LOGF_DEBUG("RA %f Dec %f Az %f Alt %f inside %d", equ_t0.ra, equ_t0.dec, hrz_t0.az, hrz_t0.alt, inside_t0);
-	} else {
-    	// we're outside, check next pos in 1 second
-    	struct ln_equ_posn equ_t1={equ_t0.ra-haArcsecPerSec/(60.0*60.0), equ_t0.dec+decArcsecPerSec/(60.0*60.0)}; // raSpeed=-haSpeed
-       	struct ln_hrz_posn hrz_t1;
-       	get_hrz_from_equ(&equ_t1, &lnobserver, jd+1.0/(24.0*60.0*60.0), &hrz_t1);
+    get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hor);
+    *horAlt=hor.alt;
+    *horAz =hor.az;
+}
 
-       	// will motion get us at least 0.1 arcsec closer to a compliant state?
-       	bool right_dir_t1=((hrz_t0.alt < AltLimitsN[0].value) && (hrz_t1.alt > hrz_t0.alt + 0.1/(60.0*60.0))) || 
-            	          ((hrz_t0.alt > AltLimitsN[1].value) && (hrz_t1.alt < hrz_t0.alt - 0.1/(60.0*60.0)))    ;
 
-        if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
-    	   	LOGF_DEBUG("RA %f Dec %f Az %f Alt %f inside %d right_dir %d", equ_t0.ra, equ_t0.dec, hrz_t0.az, hrz_t0.alt, inside_t0, right_dir_t1);
-        if(!right_dir_t1)
-            return false;
+bool PimocoMount::checkLimitsHA(double deviceHA) {
+    bool inside=(deviceHA>=HALimitsN[0].value) && (deviceHA<=HALimitsN[1].value);
+    if(!inside)
+        LOGF_ERROR("Device HA %f outside limits [%f, %f]", deviceHA, HALimitsN[0].value, HALimitsN[1].value);
+    return inside;
+}
+
+bool PimocoMount::checkLimitsHA(double deviceHA, double arcsecPerSecHA) {
+    bool inside=(deviceHA>=HALimitsN[0].value) && (deviceHA<=HALimitsN[1].value);
+    if(!inside)
+        inside= (deviceHA<HALimitsN[0].value && arcsecPerSecHA>0) ||
+                (deviceHA>HALimitsN[1].value && arcsecPerSecHA<0)    ;
+    if(!inside)
+        LOGF_ERROR("Device HA %f speed %f outside limits [%f, %f]", deviceHA, arcsecPerSecHA, HALimitsN[0].value, HALimitsN[1].value);
+    return inside;
+}
+
+bool PimocoMount::checkLimitsAlt(double horAlt) {
+    bool inside=(horAlt>=AltLimitsN[0].value) && (horAlt<=AltLimitsN[1].value);
+    if(!inside)
+        LOGF_ERROR("Altitude %f outside limits [%f, %f]", horAlt, AltLimitsN[0].value, AltLimitsN[1].value);
+    return inside;
+}
+
+bool PimocoMount::checkLimitsAlt(double horAlt, double deviceHA, double deviceDec, double arcsecPerSecHA, double arcsecPerSecDec, double jd, double lst) {
+    bool inside=(horAlt>=AltLimitsN[0].value) && (horAlt<=AltLimitsN[1].value);
+    if(!inside) {
+        // check where we will be in one second
+        double deviceHA2 =deviceHA  + arcsecPerSecHA  /(15*60);
+        double deviceDec2=deviceDec + arcsecPerSecDec /(60*60);
+        double jd2       =jd        + 1.0/(24.0*60.0*60.0);
+        double lst2      =lst       + 1.0/(     60.0*60.0);
+
+        double equRA2, equDec2; // RA in hours, declination in degrees
+        TelescopePierSide equPS2;
+        equatorialFromDevice(&equRA2, &equDec2, &equPS2, deviceHA2, deviceDec2, lst2);
+
+        double horAlt2, horAz2;
+        horizonFromEquatorial(&horAlt2, &horAz2, equRA2, equDec2, jd2);
+
+        // will motion get us at least 0.1 arcsec closer to a compliant state?
+        inside=((horAlt < AltLimitsN[0].value) && (horAlt2 > horAlt + 0.1/(60.0*60.0))) || 
+               ((horAlt > AltLimitsN[1].value) && (horAlt2 < horAlt - 0.1/(60.0*60.0)))    ;
     }
+    if(!inside)
+        LOGF_ERROR("Altitude %f outside limits [%f, %f]", horAlt, AltLimitsN[0].value, AltLimitsN[1].value);
+    return inside;
+}
 
-    // convert to device coordinates
-    double deviceHA, deviceDec;
-    bool valid=deviceFromEquatorial(&deviceHA, &deviceDec, equRA, equDec, equPS);
-
-    if(stepperHA.getDebugLevel()>=Stepper::TMC_DEBUG_DEBUG)
-        LOGF_DEBUG("Device HA %f Dec %f HA limits [%f, %f] insideHA %d", deviceHA, deviceDec, HALimitsN[0].value, HALimitsN[1].value, valid);
-
-    if(!valid)
+bool PimocoMount::applyLimits(double arcsecPerSecHA, double arcsecPerSecDec) {
+    if(!checkLimitsAlt(AltAzN[0].value, DeviceCoordN[0].value, DeviceCoordN[1].value, arcsecPerSecHA, arcsecPerSecDec, TimeN[0].value, TimeN[1].value) ||
+       !checkLimitsHA(DeviceCoordN[0].value, arcsecPerSecHA) ) {
+        Abort();
         return false;
-
-   return true;
+    }
+    return true;
 }
 
 
-bool PimocoMount::applyLimitsPosSpeed(double haArcsecPerSec, double decArcsecPerSec, bool log) {
-	if(!checkLimitsPosSpeed(EqN[0].value, EqN[1].value, getPierSide(), haArcsecPerSec, decArcsecPerSec, log)) {
-		LOG_WARN("Mount limits reached");
-		Abort();
-		return false;
-	}
-	return true;
-}
+
