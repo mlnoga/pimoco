@@ -154,6 +154,12 @@ protected:
     // Converts equatorial coordinates to device coordinates. If Julian date below zero is given, uses current time.
     void horizonFromEquatorial(double *horAlt, double *horAz, double eqRA, double eqDec, double jd=-1);
 
+    // Calculate refraction in arc minutes from the given apparent altitude, air pressure and temperature
+    static double refractionArcminsFromApparentAltitude(double appAltDegrees, double pressureMillibars, double tempCelsius);
+
+    // Calculate refraction in arc minutes from the given true altitude, air pressure and temperature
+    static double refractionArcminsFromTrueAltitude(double appAltDegrees, double pressureMillibars, double tempCelsius);
+
     // Applies mount limits to current position and direction of motion. Stops all motion and updates scope status if out of bounds and in wrong direction. Returns true if motion OK, else false 
     bool applyLimits(double arcsecPerSecHA, double arcsecPerSecDec);
 

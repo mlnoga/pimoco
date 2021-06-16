@@ -21,6 +21,9 @@
 #include <libindi/indilogger.h>
 #include <libindi/indicom.h>  // for rangeHA etc.
 #include <libnova/julian_day.h>
+#include <math.h>  // for tan()
+
+#define cotan(x)    (1.0/tan(x))
 
 
 void PimocoMount::equatorialFromDevice(double *equRA, double *equDec, TelescopePierSide *equPS, double deviceHA, double deviceDec, double lst) {
@@ -100,6 +103,26 @@ void PimocoMount::horizonFromEquatorial(double *horAlt, double *horAz, double eq
     get_hrz_from_equ(&equ_t0, &lnobserver, jd, &hor);
     *horAlt=hor.alt;
     *horAz =hor.az;
+}
+
+
+double refractionArcminsFromApparentAltitude(double appAltDegrees, double pressureMillibars, double tempCelsius) {
+    // see https://en.wikipedia.org/wiki/Atmospheric_refraction
+    double arg=appAltDegrees + 7.31/(appAltDegrees + 4.4);
+    double argRad=arg*M_PI/180.0;
+    double r=cotan(argRad);
+    double correction=(pressureMillibars/1013.25)*(283.0/(273.0+tempCelsius));
+    return r*correction;
+}
+
+
+double refractionArcminsFromTrueAltitude(double trueAltDegrees, double pressureMillibars, double tempCelsius) {
+    // see https://en.wikipedia.org/wiki/Atmospheric_refraction
+    double arg=trueAltDegrees+ 10.3/(trueAltDegrees+5.11);
+    double argRad=arg*M_PI/180.0;
+    double val=1.02*cotan(argRad);
+    double correction=(pressureMillibars/1013.25)*(283.0/(273.0+tempCelsius));
+    return val*correction;        
 }
 
 
