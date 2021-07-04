@@ -20,7 +20,7 @@ CXX=g++
 all: $(TARGETS)
 
 # Indi requires drivers to be installed into /usr/bin, unfortunately the more suitable /usr/local/bin doesn't work
-install: $(TARGET_FOCUSER) $(TARGET_MOUNT)
+install: $(TARGETS)
 	sudo cp $(TARGET_FOCUSER) $(TARGET_MOUNT) /usr/bin/
 	sudo cp indi_pimoco.xml /usr/share/indi/
 	sudo cp spi0-3cs.dtbo spi0-4cs.dtbo /boot/overlays/
