@@ -2,7 +2,7 @@
 
 Telescope mount and focuser control with a Raspberry Pi 
 
-![Stripboard with crystal oscillator and voltage regulator - top view](https://raw.githubusercontent.com/wiki/mlnoga/pimoco/images/stripboard-osc-regulator-top.jpg)
+![Assembled PCB](https://raw.githubusercontent.com/wiki/mlnoga/pimoco/images/pcb_assembled.jpg)
 
 
 ## Motivation
